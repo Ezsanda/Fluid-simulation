@@ -11,17 +11,6 @@ using UnityEngine.UIElements;
 public class FluidModel
 {
 
-    #region Enums
-
-    private enum Boundary
-    {
-        NO_SLIP_X,
-        NO_SLIP_Y,
-        NEUMANN
-    }
-
-    #endregion
-
     #region Fields
 
     private int _gridSize;
@@ -50,6 +39,8 @@ public class FluidModel
 
     private float[,] _velocityDivergence;
 
+    private FluidBoundary _wall;
+
     #endregion
 
     #region Properties
@@ -73,12 +64,14 @@ public class FluidModel
 
         _previousVelocityX = new float[_gridSize + 2, _gridSize + 2];
         _previousVelocityY = new float[_gridSize + 2, _gridSize + 2];
+
         _velocityX = new float[_gridSize + 2, _gridSize + 2];
         _velocityY = new float[_gridSize + 2, _gridSize + 2];
 
         _pressure = new float[_gridSize + 2, _gridSize + 2];
-
         _velocityDivergence = new float[_gridSize + 2, _gridSize + 2];
+
+        _wall = new FluidBoundary(_gridSize);
 
         //FlowTest();
     }
@@ -92,7 +85,7 @@ public class FluidModel
         (previousVectorField_, newVectorField_) = (newVectorField_, previousVectorField_);
     }
 
-    private void GaussSeidel(Boundary boundary_, float[,] aMatrix_, float[,] bVector_, float alpha_, float beta_)
+    private void GaussSeidel(BoundaryCondition boundary_, float[,] aMatrix_, float[,] bVector_, float alpha_, float beta_)
     {
         for (int k = 0; k < _stepCount; ++k)
         {
@@ -107,8 +100,7 @@ public class FluidModel
                                       beta_;
                 }
             }
-            //TODO check
-            SetBoundary(boundary_,aMatrix_);
+            _wall.SetBoundary(boundary_,aMatrix_);
         }
     }
 
@@ -124,7 +116,7 @@ public class FluidModel
                 _pressure[x, y] = 0;
             }
         }
-        SetBoundary(Boundary.NEUMANN,_velocityDivergence);
+        _wall.SetBoundary(BoundaryCondition.NEUMANN,_velocityDivergence);
     }
 
     private void CalculatePressureGradientField()
@@ -137,8 +129,8 @@ public class FluidModel
                 _velocityY[x, y] -= (_pressure[x, y + 1] - _pressure[x, y - 1]) / (2 * _gridSpacing);
             }
         }
-        SetBoundary(Boundary.NO_SLIP_X,_velocityX);
-        SetBoundary(Boundary.NO_SLIP_Y,_velocityY);
+        _wall.SetBoundary(BoundaryCondition.NO_SLIP_X,_velocityX);
+        _wall.SetBoundary(BoundaryCondition.NO_SLIP_Y,_velocityY);
     }
 
     #endregion
@@ -168,46 +160,7 @@ public class FluidModel
         }
     }
 
-    //TODO modify in order to handle dynamic wall changing
-    private void SetBoundary(Boundary boundary_, float[,] vectorField_)
-    {
-        for (int i = 1; i < _gridSize + 1; ++i)
-        {
-            switch (boundary_)
-            {
-                case Boundary.NO_SLIP_X:
-                    vectorField_[0, i] = -vectorField_[1, i];
-                    vectorField_[_gridSize + 1, i] = -vectorField_[_gridSize, i];
-                    vectorField_[i, 0] = vectorField_[i, 1];
-                    vectorField_[i, _gridSize + 1] = vectorField_[i, _gridSize];
-                    break;
-                case Boundary.NO_SLIP_Y:
-                    vectorField_[0, i] = vectorField_[1, i];
-                    vectorField_[_gridSize + 1, i] = vectorField_[_gridSize, i];
-                    vectorField_[i, 0] = -vectorField_[i, 1];
-                    vectorField_[i, _gridSize + 1] = -vectorField_[i, _gridSize];
-                    break;
-                case Boundary.NEUMANN:
-                    vectorField_[0, i] = vectorField_[1, i];
-                    vectorField_[_gridSize + 1, i] = vectorField_[_gridSize, i];
-                    vectorField_[i, 0] = vectorField_[i, 1];
-                    vectorField_[i, _gridSize + 1] = vectorField_[i, _gridSize];
-                    break;
-                default:
-                    break;
-            }
-            //bottom left corner
-            vectorField_[0, 0] = (vectorField_[1, 0] + vectorField_[0, 1]) / 2.0F;
-            //top left corner
-            vectorField_[0, _gridSize + 1] = (vectorField_[1, _gridSize + 1] + vectorField_[0, _gridSize]) / 2.0F;
-            //bottom right corner
-            vectorField_[_gridSize + 1, 0] = (vectorField_[_gridSize, 0] + vectorField_[_gridSize + 1, 1]) / 2.0F;
-            //top right corner
-            vectorField_[_gridSize + 1, _gridSize + 1] = (vectorField_[_gridSize, _gridSize + 1] + vectorField_[_gridSize + 1, _gridSize]) / 2.0F;
-        }
-    }
-
-    private void Diffuse(Boundary boundary_, float[,] previousVectorField_, float[,] vectorField_)
+    private void Diffuse(BoundaryCondition boundary_, float[,] previousVectorField_, float[,] vectorField_)
     {
         float alpha = _timeStep * _viscosity * Mathf.Pow(_gridSize, 2);
         float beta = 1 + 4 * alpha;
@@ -215,7 +168,7 @@ public class FluidModel
         GaussSeidel(boundary_, vectorField_, previousVectorField_, alpha, beta);
     }
 
-    private void Advect(Boundary boundary_, float[,] velocityFieldX_, float[,] velocityFieldY_,
+    private void Advect(BoundaryCondition boundary_, float[,] velocityFieldX_, float[,] velocityFieldY_,
                                       float[,] previousVectorField_, float[,] vectorField_)
     {
         float totalTimeSteps = _timeStep * _gridSize;
@@ -255,13 +208,13 @@ public class FluidModel
                                      yDifference * previousVectorField_[nextNeighborXIndex, nextNeighborYIndex]);
             }
         }
-        SetBoundary(boundary_,vectorField_);
+        _wall.SetBoundary(boundary_,vectorField_);
     }
 
     private void Project()
     {
         CalculateVelocityDivergence();
-        GaussSeidel(Boundary.NEUMANN, _pressure, _velocityDivergence, 1, 4);
+        GaussSeidel(BoundaryCondition.NEUMANN, _pressure, _velocityDivergence, 1, 4);
         CalculatePressureGradientField();
     }
 
@@ -272,44 +225,44 @@ public class FluidModel
     public void UpdateDensity(float densityValue_, int x_, int y_)
     {
         AddDensity(densityValue_,x_,y_);
-        Diffuse(Boundary.NEUMANN,_previousDensity,_density);
+        Diffuse(BoundaryCondition.NEUMANN,_previousDensity,_density);
         Swap(ref _previousDensity, ref _density);
-        Advect(Boundary.NEUMANN,_velocityX,_velocityY,_previousDensity,_density);
+        Advect(BoundaryCondition.NEUMANN,_velocityX,_velocityY,_previousDensity,_density);
     }
 
     public void UpdateDensity()
     {
-        Diffuse(Boundary.NEUMANN, _previousDensity, _density);
+        Diffuse(BoundaryCondition.NEUMANN, _previousDensity, _density);
         Swap(ref _previousDensity, ref _density);
-        Advect(Boundary.NEUMANN, _velocityX, _velocityY, _previousDensity, _density);
+        Advect(BoundaryCondition.NEUMANN, _velocityX, _velocityY, _previousDensity, _density);
     }
 
     public void UpdateVelocity(float velocityValueX_, float velocityValueY_, int x_, int y_)
     {
         ApplyGravity();
         AddVelocity(velocityValueX_, velocityValueY_, x_, y_);
-        Diffuse(Boundary.NO_SLIP_X,_previousVelocityX,_velocityX);
+        Diffuse(BoundaryCondition.NO_SLIP_X,_previousVelocityX,_velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
-        Diffuse(Boundary.NO_SLIP_Y,_previousVelocityY,_velocityY);
+        Diffuse(BoundaryCondition.NO_SLIP_Y,_previousVelocityY,_velocityY);
         Project();
         Swap(ref _previousVelocityX, ref _velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
-        Advect(Boundary.NO_SLIP_X,_previousVelocityX,_previousVelocityY,_previousVelocityX,_velocityX);
-        Advect(Boundary.NO_SLIP_Y,_previousVelocityX,_previousVelocityY,_previousVelocityY,_velocityY);
+        Advect(BoundaryCondition.NO_SLIP_X,_previousVelocityX,_previousVelocityY,_previousVelocityX,_velocityX);
+        Advect(BoundaryCondition.NO_SLIP_Y,_previousVelocityX,_previousVelocityY,_previousVelocityY,_velocityY);
         Project();
     }
 
     public void UpdateVelocity()
     {
         ApplyGravity();
-        Diffuse(Boundary.NO_SLIP_X, _previousVelocityX, _velocityX);
+        Diffuse(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
-        Diffuse(Boundary.NO_SLIP_Y, _previousVelocityY, _velocityY);
+        Diffuse(BoundaryCondition.NO_SLIP_Y, _previousVelocityY, _velocityY);
         Project();
         Swap(ref _previousVelocityX, ref _velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
-        Advect(Boundary.NO_SLIP_X, _previousVelocityX, _previousVelocityY, _previousVelocityX, _velocityX);
-        Advect(Boundary.NO_SLIP_Y, _previousVelocityX, _previousVelocityY, _previousVelocityY, _velocityY);
+        Advect(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _previousVelocityY, _previousVelocityX, _velocityX);
+        Advect(BoundaryCondition.NO_SLIP_Y, _previousVelocityX, _previousVelocityY, _previousVelocityY, _velocityY);
         Project();
     }
 
