@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEditor.Toolbars;
 using UnityEngine;
@@ -16,7 +17,7 @@ public class NewBehaviourScript : MonoBehaviour
     private int _size;
 
     [SerializeField]
-    private int _densityMagnitude;
+    private float _densityMagnitude;
 
     [SerializeField]
     private float _timeStep;
@@ -27,6 +28,12 @@ public class NewBehaviourScript : MonoBehaviour
     [SerializeField]
     private int _stepCount;
 
+    [SerializeField]
+    private float _gravity;
+
+    [SerializeField]
+    private bool _useInterpolation;
+
     private GameObject _quad;
 
     private Texture2D _grid;
@@ -35,7 +42,9 @@ public class NewBehaviourScript : MonoBehaviour
 
     private Gradient _colorRange;
 
-    #endregion
+    bool added = false;
+
+#endregion
 
     #region Game methods
 
@@ -47,7 +56,7 @@ public class NewBehaviourScript : MonoBehaviour
 
     void FixedUpdate()
     {
-        //_field.UpdateVelocity();
+        _field.UpdateVelocity(added);
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -59,6 +68,8 @@ public class NewBehaviourScript : MonoBehaviour
             }
 
             _field.UpdateDensity(_densityMagnitude,pixelHitCoordinates.x,pixelHitCoordinates.y);
+
+            //added = true;
         }
         else
         {
@@ -76,8 +87,8 @@ public class NewBehaviourScript : MonoBehaviour
     private void InitializeEntities()
     {
         _grid = new Texture2D(_size + 2, _size + 2, TextureFormat.ARGB32, false);
-        _grid.filterMode = FilterMode.Point;
-        _field = new FluidModel(_size, _timeStep, _viscosity, _stepCount);
+        _grid.filterMode = _useInterpolation ? FilterMode.Bilinear : FilterMode.Point;
+        _field = new FluidModel(_size, _timeStep, _viscosity, _stepCount,_gravity);
         _quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
         _colorRange = new Gradient();
 
@@ -107,20 +118,12 @@ public class NewBehaviourScript : MonoBehaviour
 
     private void UpdateColors()
     {
-        //TODO come up with a better solution for error handling...
-
-        /*(float minDensity, float maxDensity) = _field.CalculateMinMaxDensities();
-
-        if(minDensity == 0 && maxDensity == 0)
-        {
-            return;
-        }*/
-
         for (int x = 1; x < _size + 1; ++x)
         {
             for (int y = 1; y < _size + 1; ++y)
             {
                 Color pixelColor = CalculatePixelColor(x, y);
+                //Color pixelColor = _field.Densities[x, y] == 0 ? Color.white : Color.blue;
                 _grid.SetPixel(x, y, pixelColor);
             }
         }
@@ -151,7 +154,7 @@ public class NewBehaviourScript : MonoBehaviour
 
     private Color CalculatePixelColor(int x_, int y_)
     {
-        //(float minDensity, float maxDensity) = _field.CalculateMinMaxDensities();
+        //TODO scale min and max via testing
         (float minDensity, float maxDensity) = (0F, 0.0001F);
 
         float pixelIntensity = (_field.Densities[x_, y_] - minDensity) / (maxDensity - minDensity);

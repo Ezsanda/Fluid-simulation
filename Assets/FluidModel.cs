@@ -1,8 +1,11 @@
+#define DIFFUSION
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -12,6 +15,8 @@ public class FluidModel
 {
 
     #region Fields
+
+    private float _gravity;
 
     private int _gridSize;
 
@@ -51,12 +56,13 @@ public class FluidModel
 
     #region Constructor
 
-    public FluidModel(int gridSize_, float timeStep_, float viscosity_, int stepCount_)
+    public FluidModel(int gridSize_, float timeStep_, float viscosity_, int stepCount_, float gravity_)
     {
         _gridSize = gridSize_;
         _timeStep = timeStep_;
         _viscosity = viscosity_;
         _stepCount = stepCount_;
+        _gravity = gravity_;
         _gridSpacing = 1.0F / _gridSize;
 
         _previousDensity = new float[_gridSize + 2, _gridSize + 2];
@@ -73,7 +79,13 @@ public class FluidModel
 
         _wall = new FluidBoundary(_gridSize);
 
-        //FlowTest();
+        /*for (int x = 1; x < _gridSize + 1; ++x)
+        {
+            for (int y = 1; y < _gridSize + 1; y++)
+            {
+                _velocityY[x, y] = -_timeStep * _gravity;
+            }
+        }*/
     }
 
     #endregion
@@ -110,9 +122,9 @@ public class FluidModel
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                //TODO double check divergence calculation
-                _velocityDivergence[x, y] = (_velocityX[x + 1, y] - _velocityX[x - 1, y] + _velocityY[x, y + 1] - _velocityY[x, y - 1]) /
-                                            (-2 * _gridSpacing);
+                //TODO which one is correct???
+                //_velocityDivergence[x, y] = (_velocityX[x + 1, y] - _velocityX[x - 1, y] + _velocityY[x, y + 1] - _velocityY[x, y - 1]) / (-2 * _gridSpacing);
+                _velocityDivergence[x, y] = _gridSpacing * (_velocityX[x + 1, y] - _velocityX[x - 1, y] + _velocityY[x, y + 1] - _velocityY[x, y - 1]) / -2;
                 _pressure[x, y] = 0;
             }
         }
@@ -148,14 +160,14 @@ public class FluidModel
         _velocityY[x_, y_] += _timeStep * _density[x_, y_] * velocityValueY;
     }
 
-    //TODO stabilize
+    //TODO make more significant than viscosity
     private void ApplyGravity()
     {
         for (int x = 1; x < _gridSize + 1; ++x)
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                _velocityY[x, y] += _timeStep * _density[x,y] * 9.81F;
+                _previousVelocityY[x, y] -= _timeStep * _density[x, y] * _gravity;
             }
         }
     }
@@ -225,16 +237,22 @@ public class FluidModel
     public void UpdateDensity(float densityValue_, int x_, int y_)
     {
         AddDensity(densityValue_,x_,y_);
-        Diffuse(BoundaryCondition.NEUMANN,_previousDensity,_density);
-        Swap(ref _previousDensity, ref _density);
+        #if DIFFUSION
+            Diffuse(BoundaryCondition.NEUMANN,_previousDensity,_density);
+            Swap(ref _previousDensity, ref _density);
+        #endif
         Advect(BoundaryCondition.NEUMANN,_velocityX,_velocityY,_previousDensity,_density);
+        Swap(ref _previousDensity, ref _density);
     }
 
     public void UpdateDensity()
     {
-        Diffuse(BoundaryCondition.NEUMANN, _previousDensity, _density);
-        Swap(ref _previousDensity, ref _density);
+        #if DIFFUSION
+            Diffuse(BoundaryCondition.NEUMANN, _previousDensity, _density);
+            Swap(ref _previousDensity, ref _density);
+        #endif
         Advect(BoundaryCondition.NEUMANN, _velocityX, _velocityY, _previousDensity, _density);
+        Swap(ref _previousDensity, ref _density);
     }
 
     public void UpdateVelocity(float velocityValueX_, float velocityValueY_, int x_, int y_)
@@ -242,70 +260,33 @@ public class FluidModel
         ApplyGravity();
         AddVelocity(velocityValueX_, velocityValueY_, x_, y_);
         Diffuse(BoundaryCondition.NO_SLIP_X,_previousVelocityX,_velocityX);
-        Swap(ref _previousVelocityY, ref _velocityY);
         Diffuse(BoundaryCondition.NO_SLIP_Y,_previousVelocityY,_velocityY);
         Project();
         Swap(ref _previousVelocityX, ref _velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
         Advect(BoundaryCondition.NO_SLIP_X,_previousVelocityX,_previousVelocityY,_previousVelocityX,_velocityX);
         Advect(BoundaryCondition.NO_SLIP_Y,_previousVelocityX,_previousVelocityY,_previousVelocityY,_velocityY);
+        Swap(ref _previousVelocityX, ref _velocityX); //are those 2 swaps needed?
+        Swap(ref _previousVelocityY, ref _velocityY);
         Project();
     }
 
-    public void UpdateVelocity()
+    public void UpdateVelocity(bool added)
     {
         ApplyGravity();
         Diffuse(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _velocityX);
-        Swap(ref _previousVelocityY, ref _velocityY);
         Diffuse(BoundaryCondition.NO_SLIP_Y, _previousVelocityY, _velocityY);
         Project();
         Swap(ref _previousVelocityX, ref _velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
         Advect(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _previousVelocityY, _previousVelocityX, _velocityX);
         Advect(BoundaryCondition.NO_SLIP_Y, _previousVelocityX, _previousVelocityY, _previousVelocityY, _velocityY);
+        Swap(ref _previousVelocityX, ref _velocityX); //are those 2 swaps needed?
+        Swap(ref _previousVelocityY, ref _velocityY);
         Project();
-    }
-
-    //TODO think
-    /*public (float min, float max) CalculateMinMaxDensities()
-    {
-        float minDensity = 0;
-        float maxDensity = 0;
-
-        for (int x = 1; x < _gridSize + 1; ++x)
+        if(added)
         {
-            for (int y = 1; y < _gridSize + 1; ++y)
-            {
-                if (_density[x, y] < minDensity)
-                {
-                    minDensity = _density[x, y];
-                }
-                else if (_density[x, y] > maxDensity)
-                {
-                    maxDensity = _density[x, y];
-                }
-            }
-        }
-
-        return (minDensity, maxDensity);
-    }*/
-
-    #endregion
-
-    #region Test
-
-    private void FlowTest()
-    {
-        for (int x = 1; x < _gridSize + 1; ++x)
-        {
-            for (int y = 1; y < _gridSize + 1; ++y)
-            {
-                float xx = _gridSize / 2F + x;
-                float yy = _gridSize / 2F + y;
-
-                _velocityX[x, y] = (float)Math.Pow(xx, 2) - MathF.Pow(yy, 2) - 4;
-                _velocityY[x, y] = 2 * xx * yy;
-            }
+            Debug.Log("fasz");
         }
     }
 

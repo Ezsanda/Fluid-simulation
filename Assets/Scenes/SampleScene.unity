@@ -236,10 +236,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _size: 40
-  _densityMagnitude: 1
+  _densityMagnitude: 10
   _timeStep: 0.01
   _viscosity: 0.02
   _stepCount: 20
+  _gravity: 100000
+  _useInterpolation: 1
 --- !u!4 &685010253
 Transform:
   m_ObjectHideFlags: 0
