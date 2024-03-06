@@ -72,7 +72,7 @@ public class FluidBoundary
         SetDefaultBoundary(boundary_, vectorField_);
 
         //TODO modify in order to handle dinamic wall changing
-        foreach((int x,int y) indexes in _boundary)
+        /*foreach((int x,int y) indexes in _boundary)
         {
             switch (boundary_)
             {
@@ -88,7 +88,7 @@ public class FluidBoundary
                 default:
                     break;
             }
-        }
+        }*/
     }
 
     //TODO implement

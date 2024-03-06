@@ -32,17 +32,18 @@ public class NewBehaviourScript : MonoBehaviour
     private float _gravity;
 
     [SerializeField]
+    private MatterType _type;
+
+    [SerializeField]
     private bool _useInterpolation;
 
     private GameObject _quad;
 
     private Texture2D _grid;
 
-    private FluidModel _field;
+    private PDESolver _field;
 
     private Gradient _colorRange;
-
-    bool added = false;
 
 #endregion
 
@@ -56,7 +57,7 @@ public class NewBehaviourScript : MonoBehaviour
 
     void FixedUpdate()
     {
-        _field.UpdateVelocity(added);
+        _field.UpdateVelocity();
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -68,8 +69,6 @@ public class NewBehaviourScript : MonoBehaviour
             }
 
             _field.UpdateDensity(_densityMagnitude,pixelHitCoordinates.x,pixelHitCoordinates.y);
-
-            //added = true;
         }
         else
         {
@@ -77,6 +76,8 @@ public class NewBehaviourScript : MonoBehaviour
         }
 
         UpdateColors();
+
+        Debug.Log(_field.Densities.Cast<float>().Sum());
 
     }
 
@@ -88,7 +89,7 @@ public class NewBehaviourScript : MonoBehaviour
     {
         _grid = new Texture2D(_size + 2, _size + 2, TextureFormat.ARGB32, false);
         _grid.filterMode = _useInterpolation ? FilterMode.Bilinear : FilterMode.Point;
-        _field = new FluidModel(_size, _timeStep, _viscosity, _stepCount,_gravity);
+        _field = new PDESolver(_size, _timeStep, _viscosity, _stepCount,_gravity,_type);
         _quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
         _colorRange = new Gradient();
 
@@ -123,7 +124,6 @@ public class NewBehaviourScript : MonoBehaviour
             for (int y = 1; y < _size + 1; ++y)
             {
                 Color pixelColor = CalculatePixelColor(x, y);
-                //Color pixelColor = _field.Densities[x, y] == 0 ? Color.white : Color.blue;
                 _grid.SetPixel(x, y, pixelColor);
             }
         }
@@ -161,7 +161,7 @@ public class NewBehaviourScript : MonoBehaviour
         pixelIntensity = pixelIntensity < 0 ? 0 : pixelIntensity > 1 ? 1 : pixelIntensity;
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];
-        colorKeys[0] = new GradientColorKey(Color.blue, 1.0F);
+        colorKeys[0] = _type == MatterType.FLUID ? new GradientColorKey(Color.blue, 1.0F) : new GradientColorKey(Color.yellow, 1.0F);
         colorKeys[1] = new GradientColorKey(Color.white, 0.0F);
 
         GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];

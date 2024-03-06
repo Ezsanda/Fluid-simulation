@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UIElements;
 
-public class FluidModel
+public class PDESolver
 {
 
     #region Fields
@@ -46,6 +46,10 @@ public class FluidModel
 
     private FluidBoundary _wall;
 
+    private MatrixSolver _solver;
+
+    private MatterType _type;
+
     #endregion
 
     #region Properties
@@ -56,7 +60,7 @@ public class FluidModel
 
     #region Constructor
 
-    public FluidModel(int gridSize_, float timeStep_, float viscosity_, int stepCount_, float gravity_)
+    public PDESolver(int gridSize_, float timeStep_, float viscosity_, int stepCount_, float gravity_, MatterType type_)
     {
         _gridSize = gridSize_;
         _timeStep = timeStep_;
@@ -78,14 +82,8 @@ public class FluidModel
         _velocityDivergence = new float[_gridSize + 2, _gridSize + 2];
 
         _wall = new FluidBoundary(_gridSize);
-
-        /*for (int x = 1; x < _gridSize + 1; ++x)
-        {
-            for (int y = 1; y < _gridSize + 1; y++)
-            {
-                _velocityY[x, y] = -_timeStep * _gravity;
-            }
-        }*/
+        _solver = new MatrixSolver(_wall, _gridSize, _stepCount);
+        _type = type_;
     }
 
     #endregion
@@ -97,33 +95,12 @@ public class FluidModel
         (previousVectorField_, newVectorField_) = (newVectorField_, previousVectorField_);
     }
 
-    private void GaussSeidel(BoundaryCondition boundary_, float[,] aMatrix_, float[,] bVector_, float alpha_, float beta_)
-    {
-        for (int k = 0; k < _stepCount; ++k)
-        {
-            for (int x = 1; x < _gridSize + 1; ++x)
-            {
-                for (int y = 1; y < _gridSize + 1; ++y)
-                {
-                    aMatrix_[x, y] = (alpha_ * 
-                                     (aMatrix_[x - 1, y] + aMatrix_[x + 1, y] +
-                                      aMatrix_[x, y - 1] + aMatrix_[x, y + 1]) +
-                                      bVector_[x, y]) /
-                                      beta_;
-                }
-            }
-            _wall.SetBoundary(boundary_,aMatrix_);
-        }
-    }
-
     private void CalculateVelocityDivergence()
     {
         for (int x = 1; x < _gridSize + 1; ++x)
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                //TODO which one is correct???
-                //_velocityDivergence[x, y] = (_velocityX[x + 1, y] - _velocityX[x - 1, y] + _velocityY[x, y + 1] - _velocityY[x, y - 1]) / (-2 * _gridSpacing);
                 _velocityDivergence[x, y] = _gridSpacing * (_velocityX[x + 1, y] - _velocityX[x - 1, y] + _velocityY[x, y + 1] - _velocityY[x, y - 1]) / -2;
                 _pressure[x, y] = 0;
             }
@@ -160,14 +137,13 @@ public class FluidModel
         _velocityY[x_, y_] += _timeStep * _density[x_, y_] * velocityValueY;
     }
 
-    //TODO make more significant than viscosity
     private void ApplyGravity()
     {
         for (int x = 1; x < _gridSize + 1; ++x)
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                _previousVelocityY[x, y] -= _timeStep * _density[x, y] * _gravity;
+                _previousVelocityY[x, y] += (int)_type * _timeStep * _density[x, y] * _gravity;
             }
         }
     }
@@ -177,9 +153,10 @@ public class FluidModel
         float alpha = _timeStep * _viscosity * Mathf.Pow(_gridSize, 2);
         float beta = 1 + 4 * alpha;
 
-        GaussSeidel(boundary_, vectorField_, previousVectorField_, alpha, beta);
+        _solver.GaussSeidel(boundary_, vectorField_, previousVectorField_, alpha, beta);
     }
 
+    //ITT VAN AZ A KURVA HIBA
     private void Advect(BoundaryCondition boundary_, float[,] velocityFieldX_, float[,] velocityFieldY_,
                                       float[,] previousVectorField_, float[,] vectorField_)
     {
@@ -226,7 +203,7 @@ public class FluidModel
     private void Project()
     {
         CalculateVelocityDivergence();
-        GaussSeidel(BoundaryCondition.NEUMANN, _pressure, _velocityDivergence, 1, 4);
+        _solver.GaussSeidel(BoundaryCondition.NEUMANN, _pressure, _velocityDivergence, 1, 4);
         CalculatePressureGradientField();
     }
 
@@ -266,12 +243,12 @@ public class FluidModel
         Swap(ref _previousVelocityY, ref _velocityY);
         Advect(BoundaryCondition.NO_SLIP_X,_previousVelocityX,_previousVelocityY,_previousVelocityX,_velocityX);
         Advect(BoundaryCondition.NO_SLIP_Y,_previousVelocityX,_previousVelocityY,_previousVelocityY,_velocityY);
-        Swap(ref _previousVelocityX, ref _velocityX); //are those 2 swaps needed?
+        Swap(ref _previousVelocityX, ref _velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
         Project();
     }
 
-    public void UpdateVelocity(bool added)
+    public void UpdateVelocity()
     {
         ApplyGravity();
         Diffuse(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _velocityX);
@@ -281,13 +258,9 @@ public class FluidModel
         Swap(ref _previousVelocityY, ref _velocityY);
         Advect(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _previousVelocityY, _previousVelocityX, _velocityX);
         Advect(BoundaryCondition.NO_SLIP_Y, _previousVelocityX, _previousVelocityY, _previousVelocityY, _velocityY);
-        Swap(ref _previousVelocityX, ref _velocityX); //are those 2 swaps needed?
+        Swap(ref _previousVelocityX, ref _velocityX);
         Swap(ref _previousVelocityY, ref _velocityY);
         Project();
-        if(added)
-        {
-            Debug.Log("fasz");
-        }
     }
 
     #endregion
