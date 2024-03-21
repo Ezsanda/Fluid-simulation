@@ -13,12 +13,11 @@ using UnityEngine.UIElements;
 
 public class PDESolver
 {
-
     #region Fields
 
-    private float _gravity;
-
     private int _gridSize;
+
+    private float _gravity;
 
     private float _gridSpacing;
 
@@ -28,23 +27,9 @@ public class PDESolver
 
     private float _viscosity;
 
-    private float[,] _previousDensity;
+    private FluidGrid _grid;
 
-    private float[,] _density;
-
-    private float[,] _previousVelocityX;
-
-    private float[,] _previousVelocityY;
-
-    private float[,] _velocityX;
-
-    private float[,] _velocityY;
-
-    private float[,] _pressure;
-
-    private float[,] _velocityDivergence;
-
-    private FluidBoundary _wall;
+    private FluidBoundary _boundary;
 
     private MatrixSolver _solver;
 
@@ -54,7 +39,9 @@ public class PDESolver
 
     #region Properties
 
-    public float[,] Densities { get { return _density; } }
+    public FluidBoundary Boundary { get { return _boundary; } }
+
+    public FluidGrid Grid { get { return _grid; } }
 
     #endregion
 
@@ -69,21 +56,12 @@ public class PDESolver
         _gravity = gravity_;
         _gridSpacing = 1.0F / _gridSize;
 
-        _previousDensity = new float[_gridSize + 2, _gridSize + 2];
-        _density = new float[_gridSize + 2, _gridSize + 2];
-
-        _previousVelocityX = new float[_gridSize + 2, _gridSize + 2];
-        _previousVelocityY = new float[_gridSize + 2, _gridSize + 2];
-
-        _velocityX = new float[_gridSize + 2, _gridSize + 2];
-        _velocityY = new float[_gridSize + 2, _gridSize + 2];
-
-        _pressure = new float[_gridSize + 2, _gridSize + 2];
-        _velocityDivergence = new float[_gridSize + 2, _gridSize + 2];
-
-        _wall = new FluidBoundary(_gridSize);
-        _solver = new MatrixSolver(_wall, _gridSize, _stepCount);
+        _grid = new FluidGrid(_gridSize);
+        _boundary = new FluidBoundary(_gridSize);
+        _solver = new MatrixSolver(_boundary, _gridSize, _stepCount);
         _type = type_;
+
+        Walltest();
     }
 
     #endregion
@@ -101,11 +79,17 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                _velocityDivergence[x, y] = _gridSpacing * (_velocityX[x + 1, y] - _velocityX[x - 1, y] + _velocityY[x, y + 1] - _velocityY[x, y - 1]) / -2;
-                _pressure[x, y] = 0;
+                if (!_boundary.Walls[x,y])
+                {
+                    _grid.VelocityDivergence[x, y] = _gridSpacing * 
+                                                     (_grid.VelocityX[x + 1, y] - _grid.VelocityX[x - 1, y] +
+                                                     _grid.VelocityY[x, y + 1] - _grid.VelocityY[x, y - 1])
+                                                     / -2;
+                    _grid.Pressure[x, y] = 0;
+                }
             }
         }
-        _wall.SetBoundary(BoundaryCondition.NEUMANN,_velocityDivergence);
+        _boundary.SetBoundary(BoundaryCondition.NEUMANN,_grid.VelocityDivergence);
     }
 
     private void CalculatePressureGradientField()
@@ -114,12 +98,15 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                _velocityX[x, y] -= (_pressure[x + 1, y] - _pressure[x - 1, y]) / (2 * _gridSpacing);
-                _velocityY[x, y] -= (_pressure[x, y + 1] - _pressure[x, y - 1]) / (2 * _gridSpacing);
+                if (!_boundary.Walls[x,y])
+                {
+                    _grid.VelocityX[x, y] -= (_grid.Pressure[x + 1, y] - _grid.Pressure[x - 1, y]) / (2 * _gridSpacing);
+                    _grid.VelocityY[x, y] -= (_grid.Pressure[x, y + 1] - _grid.Pressure[x, y - 1]) / (2 * _gridSpacing);
+                }
             }
         }
-        _wall.SetBoundary(BoundaryCondition.NO_SLIP_X,_velocityX);
-        _wall.SetBoundary(BoundaryCondition.NO_SLIP_Y,_velocityY);
+        _boundary.SetBoundary(BoundaryCondition.NO_SLIP_X,_grid.VelocityX);
+        _boundary.SetBoundary(BoundaryCondition.NO_SLIP_Y,_grid.VelocityY);
     }
 
     #endregion
@@ -128,13 +115,13 @@ public class PDESolver
 
     private void AddDensity(float densityValue_, int x_, int y_)
     {
-        _previousDensity[x_,y_] += _timeStep * densityValue_;
+        _grid.PreviousDensity[x_,y_] += _timeStep * densityValue_;
     }
 
     private void AddVelocity(float velocityValueX, float velocityValueY, int x_, int y_)
     {
-        _velocityX[x_, y_] += _timeStep * _density[x_, y_] * velocityValueX;
-        _velocityY[x_, y_] += _timeStep * _density[x_, y_] * velocityValueY;
+        _grid.VelocityX[x_, y_] += _timeStep * _grid.Density[x_, y_] * velocityValueX;
+        _grid.VelocityY[x_, y_] += _timeStep * _grid.Density[x_, y_] * velocityValueY;
     }
 
     private void ApplyGravity()
@@ -143,7 +130,10 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                _previousVelocityY[x, y] += (int)_type * _timeStep * _density[x, y] * _gravity;
+                if (!_boundary.Walls[x,y])
+                {
+                    _grid.PreviousVelocityY[x, y] += (int)_type * _timeStep * _grid.Density[x, y] * _gravity;
+                }
             }
         }
     }
@@ -166,44 +156,47 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                //tracking the current pixel value backwards throught the velocity field
+                if (!_boundary.Walls[x,y])
+                {
+                    //tracking the current pixel value backwards throught the velocity field
 
-                //x coordinate of the previous value
-                float previousXIndex = x - totalTimeSteps * velocityFieldX_[x,y];
-                //y coordinate of the previous value
-                float previousYIndex = y - totalTimeSteps * velocityFieldY_[x,y];
+                    //x coordinate of the previous value
+                    float previousXIndex = x - totalTimeSteps * velocityFieldX_[x, y];
+                    //y coordinate of the previous value
+                    float previousYIndex = y - totalTimeSteps * velocityFieldY_[x, y];
 
-                //checking under/overindexing
-                previousXIndex = previousXIndex < 1.0F ? 1.0F : previousXIndex > _gridSize + 1.0F ? _gridSize - 1.0F : previousXIndex;
-                previousYIndex = previousYIndex < 1.0F ? 1.0F : previousYIndex > _gridSize + 1.0F ? _gridSize - 1.0F : previousYIndex;
+                    //checking under/overindexing
+                    previousXIndex = previousXIndex < 1.0F ? 1.0F : previousXIndex > _gridSize + 1.0F ? _gridSize - 1.0F : previousXIndex;
+                    previousYIndex = previousYIndex < 1.0F ? 1.0F : previousYIndex > _gridSize + 1.0F ? _gridSize - 1.0F : previousYIndex;
 
-                //calculating the 4 neighboring pixels
-                int previousNeighborXIndex = (int)previousXIndex;
-                int nextNeighborXIndex = previousNeighborXIndex + 1;
-                int previousNeighborYIndex = (int)previousYIndex;
-                int nextNeighborYIndex = previousNeighborYIndex + 1;
+                    //calculating the 4 neighboring pixels
+                    int previousNeighborXIndex = (int)previousXIndex;
+                    int nextNeighborXIndex = previousNeighborXIndex + 1;
+                    int previousNeighborYIndex = (int)previousYIndex;
+                    int nextNeighborYIndex = previousNeighborYIndex + 1;
 
-                float xDifference = previousXIndex - previousNeighborXIndex;
-                float secondXDifference = 1 - xDifference;
-                float yDifference = previousYIndex - previousNeighborYIndex;
-                float secondYDifference = 1 - yDifference;
+                    float xDifference = previousXIndex - previousNeighborXIndex;
+                    float secondXDifference = 1 - xDifference;
+                    float yDifference = previousYIndex - previousNeighborYIndex;
+                    float secondYDifference = 1 - yDifference;
 
-                //biliear interpolation of the 4 neightbors
-                vectorField_[x, y] = secondXDifference *
-                                     (secondYDifference * previousVectorField_[previousNeighborXIndex, previousNeighborYIndex] +
-                                     yDifference * previousVectorField_[previousNeighborXIndex, nextNeighborYIndex]) +
-                                     xDifference *
-                                     (secondYDifference * previousVectorField_[nextNeighborXIndex, previousNeighborYIndex] +
-                                     yDifference * previousVectorField_[nextNeighborXIndex, nextNeighborYIndex]);
+                    //biliear interpolation of the 4 neightbors
+                    vectorField_[x, y] = secondXDifference *
+                                         (secondYDifference * previousVectorField_[previousNeighborXIndex, previousNeighborYIndex] +
+                                         yDifference * previousVectorField_[previousNeighborXIndex, nextNeighborYIndex]) +
+                                         xDifference *
+                                         (secondYDifference * previousVectorField_[nextNeighborXIndex, previousNeighborYIndex] +
+                                         yDifference * previousVectorField_[nextNeighborXIndex, nextNeighborYIndex]);
+                }
             }
         }
-        _wall.SetBoundary(boundary_,vectorField_);
+        _boundary.SetBoundary(boundary_,vectorField_);
     }
 
     private void Project()
     {
         CalculateVelocityDivergence();
-        _solver.GaussSeidel(BoundaryCondition.NEUMANN, _pressure, _velocityDivergence, 1, 4);
+        _solver.GaussSeidel(BoundaryCondition.NEUMANN, _grid.Pressure, _grid.VelocityDivergence, 1, 4);
         CalculatePressureGradientField();
     }
 
@@ -215,52 +208,64 @@ public class PDESolver
     {
         AddDensity(densityValue_,x_,y_);
         #if DIFFUSION
-            Diffuse(BoundaryCondition.NEUMANN,_previousDensity,_density);
-            Swap(ref _previousDensity, ref _density);
+            Diffuse(BoundaryCondition.NEUMANN,_grid.PreviousDensity,_grid.Density);
+            Swap(ref _grid.PreviousDensity, ref _grid.Density);
         #endif
-        Advect(BoundaryCondition.NEUMANN,_velocityX,_velocityY,_previousDensity,_density);
-        Swap(ref _previousDensity, ref _density);
+        Advect(BoundaryCondition.NEUMANN,_grid.VelocityX,_grid.VelocityY,_grid.PreviousDensity,_grid.Density);
+        Swap(ref _grid.PreviousDensity, ref _grid.Density);
     }
 
     public void UpdateDensity()
     {
         #if DIFFUSION
-            Diffuse(BoundaryCondition.NEUMANN, _previousDensity, _density);
-            Swap(ref _previousDensity, ref _density);
+            Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
+            Swap(ref _grid.PreviousDensity, ref _grid.Density);
         #endif
-        Advect(BoundaryCondition.NEUMANN, _velocityX, _velocityY, _previousDensity, _density);
-        Swap(ref _previousDensity, ref _density);
+        Advect(BoundaryCondition.NEUMANN, _grid.VelocityX, _grid.VelocityY, _grid.PreviousDensity, _grid.Density);
+        Swap(ref _grid.PreviousDensity, ref _grid.Density);
     }
 
     public void UpdateVelocity(float velocityValueX_, float velocityValueY_, int x_, int y_)
     {
         ApplyGravity();
         AddVelocity(velocityValueX_, velocityValueY_, x_, y_);
-        Diffuse(BoundaryCondition.NO_SLIP_X,_previousVelocityX,_velocityX);
-        Diffuse(BoundaryCondition.NO_SLIP_Y,_previousVelocityY,_velocityY);
+        Diffuse(BoundaryCondition.NO_SLIP_X,_grid.PreviousVelocityX,_grid.VelocityX);
+        Diffuse(BoundaryCondition.NO_SLIP_Y,_grid.PreviousVelocityY,_grid.VelocityY);
         Project();
-        Swap(ref _previousVelocityX, ref _velocityX);
-        Swap(ref _previousVelocityY, ref _velocityY);
-        Advect(BoundaryCondition.NO_SLIP_X,_previousVelocityX,_previousVelocityY,_previousVelocityX,_velocityX);
-        Advect(BoundaryCondition.NO_SLIP_Y,_previousVelocityX,_previousVelocityY,_previousVelocityY,_velocityY);
-        Swap(ref _previousVelocityX, ref _velocityX);
-        Swap(ref _previousVelocityY, ref _velocityY);
+        Swap(ref _grid.PreviousVelocityX, ref _grid.VelocityX);
+        Swap(ref _grid.PreviousVelocityY, ref _grid.VelocityY);
+        Advect(BoundaryCondition.NO_SLIP_X,_grid.PreviousVelocityX,_grid.PreviousVelocityY,_grid.PreviousVelocityX,_grid.VelocityX);
+        Advect(BoundaryCondition.NO_SLIP_Y,_grid.PreviousVelocityX,_grid.PreviousVelocityY,_grid.PreviousVelocityY,_grid.VelocityY);
+        Swap(ref _grid.PreviousVelocityX, ref _grid.VelocityX);
+        Swap(ref _grid.PreviousVelocityY, ref _grid.VelocityY);
         Project();
     }
 
     public void UpdateVelocity()
     {
         ApplyGravity();
-        Diffuse(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _velocityX);
-        Diffuse(BoundaryCondition.NO_SLIP_Y, _previousVelocityY, _velocityY);
+        Diffuse(BoundaryCondition.NO_SLIP_X, _grid.PreviousVelocityX, _grid.VelocityX);
+        Diffuse(BoundaryCondition.NO_SLIP_Y, _grid.PreviousVelocityY, _grid.VelocityY);
         Project();
-        Swap(ref _previousVelocityX, ref _velocityX);
-        Swap(ref _previousVelocityY, ref _velocityY);
-        Advect(BoundaryCondition.NO_SLIP_X, _previousVelocityX, _previousVelocityY, _previousVelocityX, _velocityX);
-        Advect(BoundaryCondition.NO_SLIP_Y, _previousVelocityX, _previousVelocityY, _previousVelocityY, _velocityY);
-        Swap(ref _previousVelocityX, ref _velocityX);
-        Swap(ref _previousVelocityY, ref _velocityY);
+        Swap(ref _grid.PreviousVelocityX, ref _grid.VelocityX);
+        Swap(ref _grid.PreviousVelocityY, ref _grid.VelocityY);
+        Advect(BoundaryCondition.NO_SLIP_X, _grid.PreviousVelocityX, _grid.PreviousVelocityY, _grid.PreviousVelocityX, _grid.VelocityX);
+        Advect(BoundaryCondition.NO_SLIP_Y, _grid.PreviousVelocityX, _grid.PreviousVelocityY, _grid.PreviousVelocityY, _grid.VelocityY);
+        Swap(ref _grid.PreviousVelocityX, ref _grid.VelocityX);
+        Swap(ref _grid.PreviousVelocityY, ref _grid.VelocityY);
         Project();
+    }
+
+    #endregion
+
+    #region Test
+
+    private void Walltest()
+    {
+        _boundary.AddWall(10,5);
+        _boundary.AddWall(10,6);
+        _boundary.AddWall(10,7);
+        _boundary.AddWall(10,8);
     }
 
     #endregion

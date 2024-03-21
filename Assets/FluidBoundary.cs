@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static UnityEngine.Rendering.DebugUI;
 
 public class FluidBoundary
 {
@@ -8,6 +9,8 @@ public class FluidBoundary
     #region Fields
 
     private List<(int,int)> _boundary;
+
+    private bool[,] _walls;
 
     private int _gridSize;
 
@@ -19,7 +22,27 @@ public class FluidBoundary
     {
         _gridSize = gridSize_;
         _boundary = new List<(int,int)>();
+        _walls = new bool[_gridSize + 2, _gridSize + 2];
+
+        //TODO szebben
+        for (int i = 1; i < _gridSize + 1; ++i)
+        {
+            _walls[i, 0] = true;
+            _walls[i, _gridSize + 1] = true;
+            _walls[0, i] = true;
+            _walls[_gridSize + 1, i] = true;
+        }
+        _walls[0, 0] = true;
+        _walls[0, _gridSize + 1] = true;
+        _walls[_gridSize + 1, 0] = true;
+        _walls[_gridSize + 1, _gridSize + 1] = true;
     }
+
+    #endregion
+
+    #region Properties
+
+    public bool[,] Walls { get { return _walls; } }
 
     #endregion
 
@@ -71,30 +94,17 @@ public class FluidBoundary
     {
         SetDefaultBoundary(boundary_, vectorField_);
 
-        //TODO modify in order to handle dinamic wall changing
-        /*foreach((int x,int y) indexes in _boundary)
+        foreach((int x,int y) indexes in _boundary)
         {
-            switch (boundary_)
-            {
-                case BoundaryCondition.NO_SLIP_X:
-                    vectorField_[indexes.x, indexes.y] = -vectorField_[indexes.x, indexes.y];
-                    break;
-                case BoundaryCondition.NO_SLIP_Y:
-                    vectorField_[indexes.x, indexes.y] = vectorField_[indexes.x, indexes.y];
-                    break;
-                case BoundaryCondition.NEUMANN:
-                    vectorField_[indexes.x, indexes.y] = vectorField_[indexes.x, indexes.y];
-                    break;
-                default:
-                    break;
-            }
-        }*/
+
+        }
     }
 
-    //TODO implement
-    public void AddWall((int,int) position_)
+    //TODO error handling?
+    public void AddWall(int x_, int y_)
     {
-        _boundary.Add(position_);
+        _boundary.Add((x_, y_));
+        _walls[x_, y_] = true;
     }
 
     #endregion

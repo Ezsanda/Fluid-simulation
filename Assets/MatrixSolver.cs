@@ -11,17 +11,17 @@ public class MatrixSolver
 
     private int _stepCount;
 
-    private FluidBoundary _wall;
+    private FluidBoundary _boundary;
 
     #endregion
 
     #region Constructor
 
-    public MatrixSolver(FluidBoundary wall_, int gridSize_, int stepCount_)
+    public MatrixSolver(FluidBoundary boundary_, int gridSize_, int stepCount_)
     {
         _gridSize = gridSize_;
         _stepCount = stepCount_;
-        _wall = wall_;
+        _boundary = boundary_;
     }
 
     #endregion
@@ -36,14 +36,17 @@ public class MatrixSolver
             {
                 for (int y = 1; y < _gridSize + 1; ++y)
                 {
-                    aMatrix_[x, y] = (alpha_ *
+                    if (!_boundary.Walls[x,y])
+                    {
+                        aMatrix_[x, y] = (alpha_ *
                                      (aMatrix_[x - 1, y] + aMatrix_[x + 1, y] +
                                       aMatrix_[x, y - 1] + aMatrix_[x, y + 1]) +
                                       bVector_[x, y]) /
                                       beta_;
+                    }
                 }
             }
-            _wall.SetBoundary(boundary_, aMatrix_);
+            _boundary.SetBoundary(boundary_, aMatrix_);
         }
     }
 

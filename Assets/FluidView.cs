@@ -41,11 +41,11 @@ public class NewBehaviourScript : MonoBehaviour
 
     private Texture2D _grid;
 
-    private PDESolver _field;
+    private PDESolver _solver;
 
     private Gradient _colorRange;
 
-#endregion
+    #endregion
 
     #region Game methods
 
@@ -57,7 +57,7 @@ public class NewBehaviourScript : MonoBehaviour
 
     void FixedUpdate()
     {
-        _field.UpdateVelocity();
+        _solver.UpdateVelocity();
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -68,17 +68,15 @@ public class NewBehaviourScript : MonoBehaviour
                 return;
             }
 
-            _field.UpdateDensity(_densityMagnitude,pixelHitCoordinates.x,pixelHitCoordinates.y);
+            _solver.UpdateDensity(_densityMagnitude,pixelHitCoordinates.x,pixelHitCoordinates.y);
+
         }
         else
         {
-            _field.UpdateDensity();
+            _solver.UpdateDensity();
         }
 
         UpdateColors();
-
-        Debug.Log(_field.Densities.Cast<float>().Sum());
-
     }
 
     #endregion
@@ -89,7 +87,7 @@ public class NewBehaviourScript : MonoBehaviour
     {
         _grid = new Texture2D(_size + 2, _size + 2, TextureFormat.ARGB32, false);
         _grid.filterMode = _useInterpolation ? FilterMode.Bilinear : FilterMode.Point;
-        _field = new PDESolver(_size, _timeStep, _viscosity, _stepCount,_gravity,_type);
+        _solver = new PDESolver(_size, _timeStep, _viscosity, _stepCount,_gravity,_type);
         _quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
         _colorRange = new Gradient();
 
@@ -110,7 +108,7 @@ public class NewBehaviourScript : MonoBehaviour
         {
             for (int y = 0; y < _size + 2; ++y)
             {
-                Color pixelColor = x == 0 || y == 0 || x == _size + 1 || y == _size + 1 ? Color.black : Color.white;
+                Color pixelColor = _solver.Boundary.Walls[x,y] ? Color.black : Color.white;
                 _grid.SetPixel(x, y, pixelColor);
             }
         }
@@ -123,8 +121,11 @@ public class NewBehaviourScript : MonoBehaviour
         {
             for (int y = 1; y < _size + 1; ++y)
             {
-                Color pixelColor = CalculatePixelColor(x, y);
-                _grid.SetPixel(x, y, pixelColor);
+                if (!_solver.Boundary.Walls[x,y])
+                {
+                    Color pixelColor = CalculatePixelColor(x, y);
+                    _grid.SetPixel(x, y, pixelColor);
+                }
             }
         }
         _grid.Apply();
@@ -157,7 +158,7 @@ public class NewBehaviourScript : MonoBehaviour
         //TODO scale min and max via testing
         (float minDensity, float maxDensity) = (0F, 0.0001F);
 
-        float pixelIntensity = (_field.Densities[x_, y_] - minDensity) / (maxDensity - minDensity);
+        float pixelIntensity = (_solver.Grid.Density[x_, y_] - minDensity) / (maxDensity - minDensity);
         pixelIntensity = pixelIntensity < 0 ? 0 : pixelIntensity > 1 ? 1 : pixelIntensity;
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];
@@ -176,7 +177,9 @@ public class NewBehaviourScript : MonoBehaviour
 
     private bool ValidCoordinate((int x, int y) pixelCoordinate_)
     {
-        return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _size + 1 && pixelCoordinate_.y != 0 && pixelCoordinate_.y != _size + 1;
+        return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _size + 1 &&
+               pixelCoordinate_.y != 0 && pixelCoordinate_.y != _size + 1 &&
+               !_solver.Boundary.Walls[pixelCoordinate_.x, pixelCoordinate_.y];
     }
 
     #endregion

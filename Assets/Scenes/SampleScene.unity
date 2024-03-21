@@ -242,7 +242,7 @@ MonoBehaviour:
   _stepCount: 20
   _gravity: 100000
   _type: -1
-  _useInterpolation: 1
+  _useInterpolation: 0
 --- !u!4 &685010253
 Transform:
   m_ObjectHideFlags: 0
