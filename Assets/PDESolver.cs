@@ -47,21 +47,20 @@ public class PDESolver
 
     #region Constructor
 
-    public PDESolver(int gridSize_, float timeStep_, float viscosity_, int stepCount_, float gravity_, MatterType type_)
+    public PDESolver(float timeStep_, float viscosity_, int stepCount_, float gravity_)
     {
-        _gridSize = gridSize_;
+        _gridSize = Persistence.GridSize;
         _timeStep = timeStep_;
         _viscosity = viscosity_;
         _stepCount = stepCount_;
         _gravity = gravity_;
         _gridSpacing = 1.0F / _gridSize;
 
-        _grid = new FluidGrid(_gridSize);
-        _boundary = new FluidBoundary(_gridSize);
-        _solver = new MatrixSolver(_boundary, _gridSize, _stepCount);
-        _type = type_;
+        _grid = new FluidGrid();
+        _boundary = new FluidBoundary();
+        _solver = new MatrixSolver(_boundary, _stepCount);
+        _type = Persistence.MatterType;
 
-        Walltest();
     }
 
     #endregion
@@ -254,18 +253,6 @@ public class PDESolver
         Swap(ref _grid.PreviousVelocityX, ref _grid.VelocityX);
         Swap(ref _grid.PreviousVelocityY, ref _grid.VelocityY);
         Project();
-    }
-
-    #endregion
-
-    #region Test
-
-    private void Walltest()
-    {
-        _boundary.AddWall(10,5);
-        _boundary.AddWall(10,6);
-        _boundary.AddWall(10,7);
-        _boundary.AddWall(10,8);
     }
 
     #endregion

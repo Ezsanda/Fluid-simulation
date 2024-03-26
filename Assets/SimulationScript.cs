@@ -7,17 +7,13 @@ using TMPro;
 using Unity.VisualScripting;
 using UnityEditor.Toolbars;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
-public class NewBehaviourScript : MonoBehaviour
+public class SimulationScript : MonoBehaviour
 {
 
     #region Fields
-
-    [SerializeField]
-    private int _size;
-
-    [SerializeField]
-    private float _densityMagnitude;
 
     [SerializeField]
     private float _timeStep;
@@ -32,12 +28,23 @@ public class NewBehaviourScript : MonoBehaviour
     private float _gravity;
 
     [SerializeField]
-    private MatterType _type;
+    private GameObject _quad;
 
     [SerializeField]
-    private bool _useInterpolation;
+    private Slider _densityMagnitude;
 
-    private GameObject _quad;
+    [SerializeField]
+    private TextMeshProUGUI _densityText;
+
+    [SerializeField]
+    private Button _editorButton;
+
+    [SerializeField]
+    private Button _pauseButton;
+
+    private int _gridSize;
+
+    private bool _isSimulating = true;
 
     private Texture2D _grid;
 
@@ -57,26 +64,48 @@ public class NewBehaviourScript : MonoBehaviour
 
     void FixedUpdate()
     {
-        _solver.UpdateVelocity();
-
-        if (Input.GetMouseButtonDown(0))
+        if (_isSimulating)
         {
-            (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates();
+            _solver.UpdateVelocity();
 
-            if (!ValidCoordinate(pixelHitCoordinates))
+            if (Input.GetMouseButtonDown(0))
             {
-                return;
+                (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates();
+
+                if (pixelHitCoordinates == (-1, -1) || !ValidCoordinate(pixelHitCoordinates))
+                {
+                    return;
+                }
+
+                _solver.UpdateDensity(_densityMagnitude.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
+
+            }
+            else
+            {
+                _solver.UpdateDensity();
             }
 
-            _solver.UpdateDensity(_densityMagnitude,pixelHitCoordinates.x,pixelHitCoordinates.y);
-
+            UpdateColors();
         }
-        else
-        {
-            _solver.UpdateDensity();
-        }
+    }
 
-        UpdateColors();
+    #endregion
+
+    #region Private event methods
+
+    private void OnDensityChanged(float value)
+    {
+        _densityText.text = value.ToString();
+    }
+
+    private void OnEditorClick()
+    {
+        SceneManager.LoadScene(1);
+    }
+
+    private void OnPauseClick()
+    {
+        _isSimulating = !_isSimulating;
     }
 
     #endregion
@@ -85,28 +114,31 @@ public class NewBehaviourScript : MonoBehaviour
 
     private void InitializeEntities()
     {
-        _grid = new Texture2D(_size + 2, _size + 2, TextureFormat.ARGB32, false);
-        _grid.filterMode = _useInterpolation ? FilterMode.Bilinear : FilterMode.Point;
-        _solver = new PDESolver(_size, _timeStep, _viscosity, _stepCount,_gravity,_type);
-        _quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        _densityMagnitude.onValueChanged.AddListener((float value) => OnDensityChanged(value));
+        _editorButton.onClick.AddListener(() => OnEditorClick());
+        _pauseButton.onClick.AddListener(() => OnPauseClick());
+
+        _gridSize = Persistence.GridSize;
+        _grid = Persistence.Grid;
+        _grid.filterMode = Persistence.Interpolate ? FilterMode.Bilinear : FilterMode.Point;
+        _solver = new PDESolver(_timeStep, _viscosity, _stepCount,_gravity);
         _colorRange = new Gradient();
 
-        //quad scaling
-        float quadHeight = Camera.main.orthographicSize * 2;
-        float quadWidth = quadHeight * Screen.width / Screen.height;
-        _quad.transform.localScale = new Vector3(quadWidth, quadHeight, 1);
-
-        //material setting
-        Material fluidMaterial = (Material)Resources.Load("FluidMaterial");
-        _quad.GetComponent<Renderer>().material = fluidMaterial;
         _quad.GetComponent<Renderer>().material.mainTexture = _grid;
+
+        _densityMagnitude.minValue = 1;
+        _densityMagnitude.maxValue = 20;
+        _densityMagnitude.wholeNumbers = true;
+        _densityMagnitude.value = 10;
+
+        _densityText.text = _densityMagnitude.value.ToString();
     }
 
     private void GenerateGrid()
     {
-        for (int x = 0; x < _size + 2; ++x)
+        for (int x = 0; x < _gridSize + 2; ++x)
         {
-            for (int y = 0; y < _size + 2; ++y)
+            for (int y = 0; y < _gridSize + 2; ++y)
             {
                 Color pixelColor = _solver.Boundary.Walls[x,y] ? Color.black : Color.white;
                 _grid.SetPixel(x, y, pixelColor);
@@ -117,9 +149,9 @@ public class NewBehaviourScript : MonoBehaviour
 
     private void UpdateColors()
     {
-        for (int x = 1; x < _size + 1; ++x)
+        for (int x = 1; x < _gridSize + 1; ++x)
         {
-            for (int y = 1; y < _size + 1; ++y)
+            for (int y = 1; y < _gridSize + 1; ++y)
             {
                 if (!_solver.Boundary.Walls[x,y])
                 {
@@ -162,7 +194,7 @@ public class NewBehaviourScript : MonoBehaviour
         pixelIntensity = pixelIntensity < 0 ? 0 : pixelIntensity > 1 ? 1 : pixelIntensity;
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];
-        colorKeys[0] = _type == MatterType.FLUID ? new GradientColorKey(Color.blue, 1.0F) : new GradientColorKey(Color.yellow, 1.0F);
+        colorKeys[0] = Persistence.MatterType == MatterType.FLUID ? new GradientColorKey(Color.blue, 1.0F) : new GradientColorKey(Color.yellow, 1.0F);
         colorKeys[1] = new GradientColorKey(Color.white, 0.0F);
 
         GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];
@@ -177,8 +209,8 @@ public class NewBehaviourScript : MonoBehaviour
 
     private bool ValidCoordinate((int x, int y) pixelCoordinate_)
     {
-        return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _size + 1 &&
-               pixelCoordinate_.y != 0 && pixelCoordinate_.y != _size + 1 &&
+        return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _gridSize + 1 &&
+               pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1 &&
                !_solver.Boundary.Walls[pixelCoordinate_.x, pixelCoordinate_.y];
     }
 

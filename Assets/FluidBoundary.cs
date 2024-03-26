@@ -18,15 +18,19 @@ public class FluidBoundary
 
     #region Constructor
 
-    public FluidBoundary(int gridSize_)
+    public FluidBoundary()
     {
-        _gridSize = gridSize_;
-        _boundary = new List<(int,int)>();
+        _gridSize = Persistence.GridSize;
+        _boundary = Persistence.Boundary;
         _walls = new bool[_gridSize + 2, _gridSize + 2];
 
         //TODO szebben
         for (int i = 1; i < _gridSize + 1; ++i)
         {
+            for (int j = 1; j < _gridSize + 1; ++j)
+            {
+                _walls[i,j] = _boundary.Contains((i, j));
+            }
             _walls[i, 0] = true;
             _walls[i, _gridSize + 1] = true;
             _walls[0, i] = true;
@@ -96,15 +100,8 @@ public class FluidBoundary
 
         foreach((int x,int y) indexes in _boundary)
         {
-
+            //TODO
         }
-    }
-
-    //TODO error handling?
-    public void AddWall(int x_, int y_)
-    {
-        _boundary.Add((x_, y_));
-        _walls[x_, y_] = true;
     }
 
     #endregion

@@ -17,9 +17,9 @@ public class MatrixSolver
 
     #region Constructor
 
-    public MatrixSolver(FluidBoundary boundary_, int gridSize_, int stepCount_)
+    public MatrixSolver(FluidBoundary boundary_, int stepCount_)
     {
-        _gridSize = gridSize_;
+        _gridSize = Persistence.GridSize;
         _stepCount = stepCount_;
         _boundary = boundary_;
     }
