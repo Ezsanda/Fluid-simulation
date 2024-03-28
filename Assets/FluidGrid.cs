@@ -29,9 +29,9 @@ public class FluidGrid
 
     #region Constructor
 
-    public FluidGrid()
+    public FluidGrid(int gridSize_)
     {
-        _gridSize = Persistence.GridSize;
+        _gridSize = gridSize_;
 
         _previousDensity = new float[_gridSize + 2, _gridSize + 2];
         _density = new float[_gridSize + 2, _gridSize + 2];

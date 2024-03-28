@@ -16,16 +16,7 @@ public class SimulationScript : MonoBehaviour
     #region Fields
 
     [SerializeField]
-    private float _timeStep;
-
-    [SerializeField]
-    private float _viscosity;
-
-    [SerializeField]
     private int _stepCount;
-
-    [SerializeField]
-    private float _gravity;
 
     [SerializeField]
     private GameObject _quad;
@@ -51,6 +42,8 @@ public class SimulationScript : MonoBehaviour
     private PDESolver _solver;
 
     private Gradient _colorRange;
+
+    private Persistence _persistence;
 
     #endregion
 
@@ -118,10 +111,13 @@ public class SimulationScript : MonoBehaviour
         _editorButton.onClick.AddListener(() => OnEditorClick());
         _pauseButton.onClick.AddListener(() => OnPauseClick());
 
-        _gridSize = Persistence.GridSize;
-        _grid = Persistence.Grid;
-        _grid.filterMode = Persistence.Interpolate ? FilterMode.Bilinear : FilterMode.Point;
-        _solver = new PDESolver(_timeStep, _viscosity, _stepCount,_gravity);
+        _persistence = Persistence.GetInstance();
+        _persistence.LoadSettings();
+
+        _gridSize = _persistence.GridSize;
+        _grid = _persistence.Grid;
+        _grid.filterMode = _persistence.Interpolate ? FilterMode.Bilinear : FilterMode.Point;
+        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _stepCount, _persistence.Gravity, _persistence.Boundary);
         _colorRange = new Gradient();
 
         _quad.GetComponent<Renderer>().material.mainTexture = _grid;
@@ -194,7 +190,7 @@ public class SimulationScript : MonoBehaviour
         pixelIntensity = pixelIntensity < 0 ? 0 : pixelIntensity > 1 ? 1 : pixelIntensity;
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];
-        colorKeys[0] = Persistence.MatterType == MatterType.FLUID ? new GradientColorKey(Color.blue, 1.0F) : new GradientColorKey(Color.yellow, 1.0F);
+        colorKeys[0] = _persistence.MatterType == MatterType.FLUID ? new GradientColorKey(Color.blue, 1.0F) : new GradientColorKey(Color.yellow, 1.0F);
         colorKeys[1] = new GradientColorKey(Color.white, 0.0F);
 
         GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];

@@ -18,10 +18,10 @@ public class FluidBoundary
 
     #region Constructor
 
-    public FluidBoundary()
+    public FluidBoundary(int gridSize_, List<(int, int)> boundary_)
     {
-        _gridSize = Persistence.GridSize;
-        _boundary = Persistence.Boundary;
+        _gridSize = gridSize_;
+        _boundary = boundary_;
         _walls = new bool[_gridSize + 2, _gridSize + 2];
 
         //TODO szebben

@@ -33,7 +33,7 @@ public class PDESolver
 
     private MatrixSolver _solver;
 
-    private MatterType _type;
+    private MatterType _matterType;
 
     #endregion
 
@@ -47,20 +47,19 @@ public class PDESolver
 
     #region Constructor
 
-    public PDESolver(float timeStep_, float viscosity_, int stepCount_, float gravity_)
+    public PDESolver(int gridSize_,float timeStep_, MatterType matterType_, float viscosity_, int stepCount_, float gravity_, List<(int, int)> boundary_)
     {
-        _gridSize = Persistence.GridSize;
+        _gridSize = gridSize_;
         _timeStep = timeStep_;
         _viscosity = viscosity_;
         _stepCount = stepCount_;
         _gravity = gravity_;
         _gridSpacing = 1.0F / _gridSize;
 
-        _grid = new FluidGrid();
-        _boundary = new FluidBoundary();
-        _solver = new MatrixSolver(_boundary, _stepCount);
-        _type = Persistence.MatterType;
-
+        _grid = new FluidGrid(_gridSize);
+        _boundary = new FluidBoundary(_gridSize, boundary_);
+        _solver = new MatrixSolver(_boundary, _gridSize, _stepCount);
+        _matterType = matterType_;
     }
 
     #endregion
@@ -131,7 +130,7 @@ public class PDESolver
             {
                 if (!_boundary.Walls[x,y])
                 {
-                    _grid.PreviousVelocityY[x, y] += (int)_type * _timeStep * _grid.Density[x, y] * _gravity;
+                    _grid.PreviousVelocityY[x, y] += (int)_matterType * _timeStep * _grid.Density[x, y] * _gravity;
                 }
             }
         }
@@ -145,7 +144,6 @@ public class PDESolver
         _solver.GaussSeidel(boundary_, vectorField_, previousVectorField_, alpha, beta);
     }
 
-    //ITT VAN AZ A KURVA HIBA
     private void Advect(BoundaryCondition boundary_, float[,] velocityFieldX_, float[,] velocityFieldY_,
                                       float[,] previousVectorField_, float[,] vectorField_)
     {
