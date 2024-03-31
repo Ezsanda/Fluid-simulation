@@ -93,9 +93,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
                 return;
             }
 
-            Color pixelColor = _rightDown ? Color.white : Color.black;
-            _grid.SetPixel(pixelHitCoordinates.x, pixelHitCoordinates.y, pixelColor);
-            _grid.Apply();
+            PaintCoordinates(pixelHitCoordinates);
         }
     }
 
@@ -207,7 +205,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void SetupSliders()
     {
-        _resolutionSlider.minValue = 1;
+        _resolutionSlider.minValue = 5;
         _resolutionSlider.maxValue = 100;
         _gridSize = 40;
         _resolutionText.text = _gridSize.ToString();
@@ -286,6 +284,28 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     {
         return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _gridSize + 1 &&
                pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1;
+    }
+
+    //TODO szebben
+    private void PaintCoordinates((int x, int y) pixelCoordinate_)
+    {
+        Color pixelColor = _rightDown ? Color.white : Color.black;
+
+        _grid.SetPixel(pixelCoordinate_.x, pixelCoordinate_.y, pixelColor);
+
+        if(pixelCoordinate_.x + 1 != _gridSize + 1)
+        {
+            _grid.SetPixel(pixelCoordinate_.x + 1, pixelCoordinate_.y, pixelColor);
+        }
+        if(pixelCoordinate_.y - 1 != 0)
+        {
+            _grid.SetPixel(pixelCoordinate_.x, pixelCoordinate_.y - 1, pixelColor);
+        }
+        if(pixelCoordinate_.x + 1 != _gridSize + 1 && pixelCoordinate_.y - 1 != 0)
+        {
+            _grid.SetPixel(pixelCoordinate_.x + 1, pixelCoordinate_.y - 1, pixelColor);
+        }
+        _grid.Apply();
     }
 
     #endregion

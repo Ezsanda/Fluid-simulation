@@ -52,7 +52,6 @@ public class SimulationScript : MonoBehaviour
     void Start()
     {
         InitializeEntities();
-        GenerateGrid();
     }
 
     void FixedUpdate()
@@ -116,8 +115,7 @@ public class SimulationScript : MonoBehaviour
 
         _gridSize = _persistence.GridSize;
         _grid = _persistence.Grid;
-        _grid.filterMode = _persistence.Interpolate ? FilterMode.Bilinear : FilterMode.Point;
-        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _stepCount, _persistence.Gravity, _persistence.Boundary);
+        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _stepCount, _persistence.Gravity, _persistence.WallTypes);
         _colorRange = new Gradient();
 
         _quad.GetComponent<Renderer>().material.mainTexture = _grid;
@@ -130,26 +128,13 @@ public class SimulationScript : MonoBehaviour
         _densityText.text = _densityMagnitude.value.ToString();
     }
 
-    private void GenerateGrid()
-    {
-        for (int x = 0; x < _gridSize + 2; ++x)
-        {
-            for (int y = 0; y < _gridSize + 2; ++y)
-            {
-                Color pixelColor = _solver.Boundary.Walls[x,y] ? Color.black : Color.white;
-                _grid.SetPixel(x, y, pixelColor);
-            }
-        }
-        _grid.Apply();
-    }
-
     private void UpdateColors()
     {
         for (int x = 1; x < _gridSize + 1; ++x)
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                if (!_solver.Boundary.Walls[x,y])
+                if(_solver.Boundary.WallTypes[x, y] == WallType.NONE)
                 {
                     Color pixelColor = CalculatePixelColor(x, y);
                     _grid.SetPixel(x, y, pixelColor);
@@ -207,7 +192,7 @@ public class SimulationScript : MonoBehaviour
     {
         return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _gridSize + 1 &&
                pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1 &&
-               !_solver.Boundary.Walls[pixelCoordinate_.x, pixelCoordinate_.y];
+               _solver.Boundary.WallTypes[pixelCoordinate_.x, pixelCoordinate_.y] == WallType.NONE;
     }
 
     #endregion

@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
+using UnityEngine.Android;
 using static UnityEngine.Rendering.DebugUI;
 
 public class FluidBoundary
@@ -8,9 +10,7 @@ public class FluidBoundary
 
     #region Fields
 
-    private List<(int,int)> _boundary;
-
-    private bool[,] _walls;
+    private WallType[,] _wallTypes;
 
     private int _gridSize;
 
@@ -18,89 +18,153 @@ public class FluidBoundary
 
     #region Constructor
 
-    public FluidBoundary(int gridSize_, List<(int, int)> boundary_)
+    public FluidBoundary(int gridSize_, WallType[,] wallTypes_)
     {
         _gridSize = gridSize_;
-        _boundary = boundary_;
-        _walls = new bool[_gridSize + 2, _gridSize + 2];
-
-        //TODO szebben
-        for (int i = 1; i < _gridSize + 1; ++i)
-        {
-            for (int j = 1; j < _gridSize + 1; ++j)
-            {
-                _walls[i,j] = _boundary.Contains((i, j));
-            }
-            _walls[i, 0] = true;
-            _walls[i, _gridSize + 1] = true;
-            _walls[0, i] = true;
-            _walls[_gridSize + 1, i] = true;
-        }
-        _walls[0, 0] = true;
-        _walls[0, _gridSize + 1] = true;
-        _walls[_gridSize + 1, 0] = true;
-        _walls[_gridSize + 1, _gridSize + 1] = true;
+        _wallTypes = wallTypes_;
     }
 
     #endregion
 
     #region Properties
 
-    public bool[,] Walls { get { return _walls; } }
+    public WallType[,] WallTypes { get { return _wallTypes; } }
 
     #endregion
 
     #region Private methods
 
-    private void SetDefaultBoundary(BoundaryCondition boundary_, float[,] vectorField_)
+    private void SetDefaultBoundary(BoundaryCondition boundary_, float[,] vectorField_, int x_)
     {
-        for(int i = 1; i < _gridSize + 1; ++i)
+        switch (boundary_)
         {
-            switch (boundary_)
-            {
-                case BoundaryCondition.NO_SLIP_X:
-                    vectorField_[0, i] = -vectorField_[1, i];
-                    vectorField_[_gridSize + 1, i] = -vectorField_[_gridSize, i];
-                    vectorField_[i, 0] = vectorField_[i, 1];
-                    vectorField_[i, _gridSize + 1] = vectorField_[i, _gridSize];
-                    break;
-                case BoundaryCondition.NO_SLIP_Y:
-                    vectorField_[0, i] = vectorField_[1, i];
-                    vectorField_[_gridSize + 1, i] = vectorField_[_gridSize, i];
-                    vectorField_[i, 0] = -vectorField_[i, 1];
-                    vectorField_[i, _gridSize + 1] = -vectorField_[i, _gridSize];
-                    break;
-                case BoundaryCondition.NEUMANN:
-                    vectorField_[0, i] = vectorField_[1, i];
-                    vectorField_[_gridSize + 1, i] = vectorField_[_gridSize, i];
-                    vectorField_[i, 0] = vectorField_[i, 1];
-                    vectorField_[i, _gridSize + 1] = vectorField_[i, _gridSize];
-                    break;
-                default:
-                    break;
-            }
+            case BoundaryCondition.NO_SLIP_X:
+                vectorField_[0, x_] = -vectorField_[1, x_];
+                vectorField_[_gridSize + 1, x_] = -vectorField_[_gridSize, x_];
+                vectorField_[x_, 0] = vectorField_[x_, 1];
+                vectorField_[x_, _gridSize + 1] = vectorField_[x_, _gridSize];
+                break;
+            case BoundaryCondition.NO_SLIP_Y:
+                vectorField_[0, x_] = vectorField_[1, x_];
+                vectorField_[_gridSize + 1, x_] = vectorField_[_gridSize, x_];
+                vectorField_[x_, 0] = -vectorField_[x_, 1];
+                vectorField_[x_, _gridSize + 1] = -vectorField_[x_, _gridSize];
+                break;
+            case BoundaryCondition.NEUMANN:
+                vectorField_[0, x_] = vectorField_[1, x_];
+                vectorField_[_gridSize + 1, x_] = vectorField_[_gridSize, x_];
+                vectorField_[x_, 0] = vectorField_[x_, 1];
+                vectorField_[x_, _gridSize + 1] = vectorField_[x_, _gridSize];
+                break;
+            default:
+                break;
         }
-        //bottom left corner
+
         vectorField_[0, 0] = (vectorField_[1, 0] + vectorField_[0, 1]) / 2.0F;
-        //top left corner
         vectorField_[0, _gridSize + 1] = (vectorField_[1, _gridSize + 1] + vectorField_[0, _gridSize]) / 2.0F;
-        //bottom right corner
         vectorField_[_gridSize + 1, 0] = (vectorField_[_gridSize, 0] + vectorField_[_gridSize + 1, 1]) / 2.0F;
-        //top right corner
         vectorField_[_gridSize + 1, _gridSize + 1] = (vectorField_[_gridSize, _gridSize + 1] + vectorField_[_gridSize + 1, _gridSize]) / 2.0F;
+    }
+
+    private void SetInnerBoundary(BoundaryCondition boundary_, float[,] vectorField_, int x_, int y_)
+    {
+        switch (_wallTypes[x_, y_])
+        {
+            case WallType.TOPLEFT:
+                vectorField_[x_, y_] = (vectorField_[x_ - 1, y_] + vectorField_[x_, y_ + 1]) / 2.0F;
+                break;
+            case WallType.TOP:
+                switch (boundary_)
+                {
+                    case BoundaryCondition.NO_SLIP_X:
+                        vectorField_[x_, y_] = vectorField_[x_, y_ + 1];
+                        break;
+                    case BoundaryCondition.NO_SLIP_Y:
+                        vectorField_[x_, y_] = -vectorField_[x_, y_ + 1];
+                        break;
+                    case BoundaryCondition.NEUMANN:
+                        vectorField_[x_, y_] = vectorField_[x_, y_ + 1];
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case WallType.TOPRIGHT:
+                vectorField_[x_, y_] = (vectorField_[x_ + 1, y_] + vectorField_[x_, y_ + 1]) / 2.0F;
+                break;
+            case WallType.RIGHT:
+                switch (boundary_)
+                {
+                    case BoundaryCondition.NO_SLIP_X:
+                        vectorField_[x_, y_] = -vectorField_[x_ + 1, y_];
+                        break;
+                    case BoundaryCondition.NO_SLIP_Y:
+                        vectorField_[x_, y_] = vectorField_[x_ + 1, y_];
+                        break;
+                    case BoundaryCondition.NEUMANN:
+                        vectorField_[x_, y_] = vectorField_[x_ + 1, y_];
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case WallType.BOTTOMRIGHT:
+                vectorField_[x_, y_] = (vectorField_[x_ + 1, y_] + vectorField_[x_, y_ - 1]) / 2.0F;
+                break;
+            case WallType.BOTTOM:
+                switch (boundary_)
+                {
+                    case BoundaryCondition.NO_SLIP_X:
+                        vectorField_[x_, y_] = vectorField_[x_, y_ - 1];
+                        break;
+                    case BoundaryCondition.NO_SLIP_Y:
+                        vectorField_[x_, y_] = -vectorField_[x_, y_ - 1];
+                        break;
+                    case BoundaryCondition.NEUMANN:
+                        vectorField_[x_, y_] = vectorField_[x_, y_ - 1];
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case WallType.BOTTOMLEFT:
+                vectorField_[x_, y_] = (vectorField_[x_ - 1, y_] + vectorField_[x_, y_ - 1]) / 2.0F;
+                break;
+            case WallType.LEFT:
+                switch (boundary_)
+                {
+                    case BoundaryCondition.NO_SLIP_X:
+                        vectorField_[x_, y_] = -vectorField_[x_ - 1, y_];
+                        break;
+                    case BoundaryCondition.NO_SLIP_Y:
+                        vectorField_[x_, y_] = vectorField_[x_ - 1, y_];
+                        break;
+                    case BoundaryCondition.NEUMANN:
+                        vectorField_[x_, y_] = vectorField_[x_ - 1, y_];
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     #endregion
 
     #region Public methods
 
+    //TODO debug
     public void SetBoundary(BoundaryCondition boundary_, float[,] vectorField_)
     {
-        SetDefaultBoundary(boundary_, vectorField_);
-
-        foreach((int x,int y) indexes in _boundary)
+        for (int x = 1; x < _gridSize + 1; ++x)
         {
-            //TODO
+            SetDefaultBoundary(boundary_, vectorField_, x);
+            for (int y = 1; y < _gridSize + 1; ++y)
+            {
+                SetInnerBoundary(boundary_, vectorField_, x, y);
+            }
         }
     }
 

@@ -36,7 +36,7 @@ public class MatrixSolver
             {
                 for (int y = 1; y < _gridSize + 1; ++y)
                 {
-                    if (!_boundary.Walls[x,y])
+                    if (_boundary.WallTypes[x, y] == WallType.NONE)
                     {
                         aMatrix_[x, y] = (alpha_ *
                                      (aMatrix_[x - 1, y] + aMatrix_[x + 1, y] +
@@ -48,11 +48,6 @@ public class MatrixSolver
             }
             _boundary.SetBoundary(boundary_, aMatrix_);
         }
-    }
-
-    public void Jacobi(BoundaryCondition boundary_, float[,] aMatrix_, float[,] bVector_)
-    {
-        //TODO
     }
 
     #endregion

@@ -47,7 +47,7 @@ public class PDESolver
 
     #region Constructor
 
-    public PDESolver(int gridSize_,float timeStep_, MatterType matterType_, float viscosity_, int stepCount_, float gravity_, List<(int, int)> boundary_)
+    public PDESolver(int gridSize_,float timeStep_, MatterType matterType_, float viscosity_, int stepCount_, float gravity_, WallType[,] wallTypes_)
     {
         _gridSize = gridSize_;
         _timeStep = timeStep_;
@@ -57,7 +57,7 @@ public class PDESolver
         _gridSpacing = 1.0F / _gridSize;
 
         _grid = new FluidGrid(_gridSize);
-        _boundary = new FluidBoundary(_gridSize, boundary_);
+        _boundary = new FluidBoundary(_gridSize, wallTypes_);
         _solver = new MatrixSolver(_boundary, _gridSize, _stepCount);
         _matterType = matterType_;
     }
@@ -77,7 +77,7 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                if (!_boundary.Walls[x,y])
+                if (_boundary.WallTypes[x, y] == WallType.NONE)
                 {
                     _grid.VelocityDivergence[x, y] = _gridSpacing * 
                                                      (_grid.VelocityX[x + 1, y] - _grid.VelocityX[x - 1, y] +
@@ -96,7 +96,7 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                if (!_boundary.Walls[x,y])
+                if (_boundary.WallTypes[x, y] == WallType.NONE)
                 {
                     _grid.VelocityX[x, y] -= (_grid.Pressure[x + 1, y] - _grid.Pressure[x - 1, y]) / (2 * _gridSpacing);
                     _grid.VelocityY[x, y] -= (_grid.Pressure[x, y + 1] - _grid.Pressure[x, y - 1]) / (2 * _gridSpacing);
@@ -128,7 +128,7 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                if (!_boundary.Walls[x,y])
+                if (_boundary.WallTypes[x, y] == WallType.NONE)
                 {
                     _grid.PreviousVelocityY[x, y] += (int)_matterType * _timeStep * _grid.Density[x, y] * _gravity;
                 }
@@ -153,7 +153,7 @@ public class PDESolver
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                if (!_boundary.Walls[x,y])
+                if (_boundary.WallTypes[x, y] == WallType.NONE)
                 {
                     //tracking the current pixel value backwards throught the velocity field
 

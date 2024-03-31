@@ -25,16 +25,7 @@ public class Persistence
 
 	private Texture2D _grid;
 
-	private List<(int, int)> _boundary = new List<(int, int)>();
-
-	#endregion
-
-	#region Constructor
-
-	private Persistence()
-    {
-		_boundary = new List<(int, int)>();
-    }
+    private WallType[,] _wallTypes;
 
 	#endregion
 
@@ -47,13 +38,66 @@ public class Persistence
     public float Viscosity { get { return _viscosity; } }
     public float Gravity { get { return _gravity; } }
     public Texture2D Grid { get { return _grid; } }
-    public List<(int, int)> Boundary { get { return _boundary; } }
+    public WallType[,] WallTypes { get { return _wallTypes; } }
 
-	#endregion
+    #endregion
 
-	#region Public methods
+    #region Private methods
 
-	public static Persistence GetInstance()
+    //TODO fix
+    private int CalculateWallType(Texture2D grid_, int x_, int y_)
+    {
+        Color center = grid_.GetPixel(x_, y_);
+        if(center == Color.white)
+        {
+            return (int)WallType.NONE;
+        }
+
+        Color top = grid_.GetPixel(x_, y_ + 1);
+        Color right = grid_.GetPixel(x_ + 1, y_);
+        Color bottom = grid_.GetPixel(x_, y_ - 1);
+        Color left = grid_.GetPixel(x_ - 1, y_);
+
+        if(top == Color.white && left == Color.white)
+        {
+            return (int)WallType.TOPLEFT;
+        }
+        else if(left == Color.black && right == Color.black && top == Color.white)
+        {
+            return (int)WallType.TOP;
+        }
+        else if(top == Color.white && right == Color.white)
+        {
+            return (int)WallType.TOPRIGHT;
+        }
+        else if(top == Color.black && bottom == Color.black && right == Color.white)
+        {
+            return (int)WallType.RIGHT;
+        }
+        else if(bottom == Color.white && right == Color.white)
+        {
+            return (int)WallType.BOTTOMRIGHT;
+        }
+        else if(left == Color.black && right == Color.black && bottom == Color.white)
+        {
+            return (int)WallType.BOTTOM;
+        }
+        else if (bottom == Color.white && left == Color.white)
+        {
+            return (int)WallType.BOTTOMLEFT;
+        }
+        else if(top == Color.black && bottom == Color.black && left == Color.white)
+        {
+            return (int)WallType.LEFT;
+        }
+        return (int)WallType.INNER;
+    }
+
+    #endregion
+
+    #region Public methods
+
+    public static Persistence GetInstance()
     {
         if(_instance == null)
         {
@@ -72,19 +116,12 @@ public class Persistence
         sr.WriteLine(viscosity_);
         sr.WriteLine(gravity_);
 
-		_boundary.Clear();
-		for (int i = 1; i < gridSize_ + 1; ++i)
+		for (int x = gridSize_; x > 0; --x)
 		{
-			for (int j = 1; j < gridSize_ + 1; ++j)
+			for (int y = 1; y < gridSize_ + 1; ++y)
 			{
-				if(grid_.GetPixel(i,j) == Color.black)
-				{
-					sr.Write("1");
-				}
-                else
-				{
-					sr.Write("0");
-				}
+                int currentPixel = CalculateWallType(grid_, y, x);
+                sr.Write(currentPixel);
 			}
 			sr.WriteLine();
 		}
@@ -100,25 +137,26 @@ public class Persistence
         _timeStep = float.Parse(sr.ReadLine());
         _viscosity = float.Parse(sr.ReadLine());
         _gravity = float.Parse(sr.ReadLine());
-
         _grid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
+        _grid.filterMode = _interpolate ? FilterMode.Bilinear : FilterMode.Point;
+        _wallTypes = new WallType[_gridSize + 2, _gridSize + 2];
 
-		_boundary.Clear();
-        for (int i = 1; i < _gridSize + 1; ++i)
+        for (int x = _gridSize; x > 0; --x)
 		{
-            _grid.SetPixel(i, 0, Color.black);
-            _grid.SetPixel(i, _gridSize + 1, Color.black);
-            _grid.SetPixel(0, i, Color.black);
-            _grid.SetPixel(_gridSize + 1, i, Color.black);
+            _grid.SetPixel(x, 0, Color.black);
+            _grid.SetPixel(x, _gridSize + 1, Color.black);
+            _grid.SetPixel(0, x, Color.black);
+            _grid.SetPixel(_gridSize + 1, x, Color.black);
 
 			string line = sr.ReadLine();
-			for (int j = 1; j < _gridSize + 1; ++j)
+			for (int y = 1; y < _gridSize + 1; ++y)
 			{
-                if (line[j - 1] == '1')
+                WallType currentPixel = (WallType)int.Parse(line[y - 1].ToString());
+                if (currentPixel != WallType.NONE)
                 {
-                    _boundary.Add((i, j));
-                    _grid.SetPixel(i, j, Color.black);
+                    _grid.SetPixel(y, x, Color.black);
                 }
+                _wallTypes[y, x] = currentPixel;
             }
 		}
         _grid.SetPixel(0, 0, Color.black);
