@@ -9,6 +9,8 @@ using UnityEditor.Toolbars;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using System;
+using UnityEngine.Assertions.Must;
 
 public class SimulationScript : MonoBehaviour
 {
@@ -16,13 +18,10 @@ public class SimulationScript : MonoBehaviour
     #region Fields
 
     [SerializeField]
-    private int _stepCount;
-
-    [SerializeField]
     private GameObject _quad;
 
     [SerializeField]
-    private Slider _densityMagnitude;
+    private Slider _densitySlider;
 
     [SerializeField]
     private TextMeshProUGUI _densityText;
@@ -69,8 +68,7 @@ public class SimulationScript : MonoBehaviour
                     return;
                 }
 
-                _solver.UpdateDensity(_densityMagnitude.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
-
+                _solver.UpdateDensity(_densitySlider.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
             }
             else
             {
@@ -106,7 +104,7 @@ public class SimulationScript : MonoBehaviour
 
     private void InitializeEntities()
     {
-        _densityMagnitude.onValueChanged.AddListener((float value) => OnDensityChanged(value));
+        _densitySlider.onValueChanged.AddListener((float value) => OnDensityChanged(value));
         _editorButton.onClick.AddListener(() => OnEditorClick());
         _pauseButton.onClick.AddListener(() => OnPauseClick());
 
@@ -115,17 +113,16 @@ public class SimulationScript : MonoBehaviour
 
         _gridSize = _persistence.GridSize;
         _grid = _persistence.Grid;
-        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _stepCount, _persistence.Gravity, _persistence.WallTypes);
+        _solver = new PDESolver(_gridSize, _persistence.Diffuse, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
         _colorRange = new Gradient();
 
         _quad.GetComponent<Renderer>().material.mainTexture = _grid;
 
-        _densityMagnitude.minValue = 1;
-        _densityMagnitude.maxValue = 20;
-        _densityMagnitude.wholeNumbers = true;
-        _densityMagnitude.value = 10;
+        _densitySlider.minValue = 1;
+        _densitySlider.maxValue = 10;
+        _densitySlider.value = 1;
 
-        _densityText.text = _densityMagnitude.value.ToString();
+        _densityText.text = _densitySlider.value.ToString();
     }
 
     private void UpdateColors()
@@ -169,9 +166,10 @@ public class SimulationScript : MonoBehaviour
     private Color CalculatePixelColor(int x_, int y_)
     {
         //TODO scale min and max via testing
-        (float minDensity, float maxDensity) = (0F, 0.0001F);
+        (float minDensity, float maxDensity) = (0, 0.0001F);
 
         float pixelIntensity = (_solver.Grid.Density[x_, y_] - minDensity) / (maxDensity - minDensity);
+
         pixelIntensity = pixelIntensity < 0 ? 0 : pixelIntensity > 1 ? 1 : pixelIntensity;
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];

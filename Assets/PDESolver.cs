@@ -1,5 +1,3 @@
-#define DIFFUSION
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -27,6 +25,8 @@ public class PDESolver
 
     private float _viscosity;
 
+    private bool _diffuse;
+
     private FluidGrid _grid;
 
     private FluidBoundary _boundary;
@@ -47,7 +47,7 @@ public class PDESolver
 
     #region Constructor
 
-    public PDESolver(int gridSize_,float timeStep_, MatterType matterType_, float viscosity_, int stepCount_, float gravity_, WallType[,] wallTypes_)
+    public PDESolver(int gridSize_, bool diffuse_, float timeStep_, MatterType matterType_, float viscosity_, int stepCount_, float gravity_, WallType[,] wallTypes_)
     {
         _gridSize = gridSize_;
         _timeStep = timeStep_;
@@ -55,11 +55,12 @@ public class PDESolver
         _stepCount = stepCount_;
         _gravity = gravity_;
         _gridSpacing = 1.0F / _gridSize;
+        _diffuse = diffuse_;
+        _matterType = matterType_;
 
         _grid = new FluidGrid(_gridSize);
         _boundary = new FluidBoundary(_gridSize, wallTypes_);
         _solver = new MatrixSolver(_boundary, _gridSize, _stepCount);
-        _matterType = matterType_;
     }
 
     #endregion
@@ -204,20 +205,25 @@ public class PDESolver
     public void UpdateDensity(float densityValue_, int x_, int y_)
     {
         AddDensity(densityValue_,x_,y_);
-        #if DIFFUSION
-            Diffuse(BoundaryCondition.NEUMANN,_grid.PreviousDensity,_grid.Density);
+
+        if(_diffuse)
+        {
+            Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
             Swap(ref _grid.PreviousDensity, ref _grid.Density);
-        #endif
+        }
+
         Advect(BoundaryCondition.NEUMANN,_grid.VelocityX,_grid.VelocityY,_grid.PreviousDensity,_grid.Density);
         Swap(ref _grid.PreviousDensity, ref _grid.Density);
     }
 
     public void UpdateDensity()
     {
-        #if DIFFUSION
+        if(_diffuse)
+        {
             Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
             Swap(ref _grid.PreviousDensity, ref _grid.Density);
-        #endif
+        }
+
         Advect(BoundaryCondition.NEUMANN, _grid.VelocityX, _grid.VelocityY, _grid.PreviousDensity, _grid.Density);
         Swap(ref _grid.PreviousDensity, ref _grid.Density);
     }

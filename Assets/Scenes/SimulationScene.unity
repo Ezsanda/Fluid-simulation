@@ -569,7 +569,7 @@ GameObject:
   - component: {fileID: 625773889}
   - component: {fileID: 625773890}
   m_Layer: 0
-  m_Name: DensityMagnitude
+  m_Name: DensitySlider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -643,7 +643,7 @@ MonoBehaviour:
   m_Direction: 0
   m_MinValue: 0
   m_MaxValue: 1
-  m_WholeNumbers: 0
+  m_WholeNumbers: 1
   m_Value: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -1349,7 +1349,7 @@ GameObject:
   - component: {fileID: 1778151869}
   - component: {fileID: 1778151868}
   m_Layer: 0
-  m_Name: Density
+  m_Name: DensityText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1516,12 +1516,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25f852c08c59df0429506d4385c14946, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _timeStep: 0.01
-  _viscosity: 0.02
-  _stepCount: 10
-  _gravity: 100000
   _quad: {fileID: 797218747}
-  _densityMagnitude: {fileID: 625773890}
+  _densitySlider: {fileID: 625773890}
   _densityText: {fileID: 1778151868}
   _editorButton: {fileID: 2075477952}
   _pauseButton: {fileID: 1554386950}

@@ -15,6 +15,8 @@ public class Persistence
 
 	private bool _interpolate;
 
+    private bool _diffuse;
+
 	private MatterType _matterType;
 
 	private float _timeStep;
@@ -22,6 +24,8 @@ public class Persistence
 	private float _viscosity;
 
 	private float _gravity;
+
+    private int _stepCount;
 
 	private Texture2D _grid;
 
@@ -32,19 +36,30 @@ public class Persistence
 	#region Properties
 
 	public int GridSize { get { return _gridSize; } }
+
     public bool Interpolate { get { return _interpolate; } }
+
+    public bool Diffuse { get { return _diffuse; } }
+
     public MatterType MatterType { get { return _matterType; } }
+
     public float TimeStep { get { return _timeStep; } }
+
     public float Viscosity { get { return _viscosity; } }
+
     public float Gravity { get { return _gravity; } }
+
+    public int StepCount { get { return _stepCount; } }
+
     public Texture2D Grid { get { return _grid; } }
+
     public WallType[,] WallTypes { get { return _wallTypes; } }
 
     #endregion
 
     #region Private methods
 
-    //TODO fix
+    //TODO szebben
     private int CalculateWallType(Texture2D grid_, int x_, int y_)
     {
         Color center = grid_.GetPixel(x_, y_);
@@ -106,15 +121,17 @@ public class Persistence
         return _instance;
     }
 
-	public void SaveSettings(int gridSize_, Texture2D grid_, bool interpolate_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_)
+	public void SaveSettings(int gridSize_, Texture2D grid_, bool interpolate_, bool diffuse_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
 	{
 		StreamWriter sr = new StreamWriter("settings.txt", false);
         sr.WriteLine(gridSize_);
         sr.WriteLine(interpolate_);
+        sr.WriteLine(diffuse_);
         sr.WriteLine(matterType_);
         sr.WriteLine(timeStep_);
         sr.WriteLine(viscosity_);
         sr.WriteLine(gravity_);
+        sr.WriteLine(stepCount_);
 
 		for (int x = gridSize_; x > 0; --x)
 		{
@@ -133,10 +150,12 @@ public class Persistence
         StreamReader sr = new StreamReader("settings.txt");
 		_gridSize = int.Parse(sr.ReadLine());
         _interpolate = bool.Parse(sr.ReadLine());
+        _diffuse = bool.Parse(sr.ReadLine());
         _matterType = sr.ReadLine() == "FLUID" ? MatterType.FLUID : MatterType.GAS;
         _timeStep = float.Parse(sr.ReadLine());
         _viscosity = float.Parse(sr.ReadLine());
         _gravity = float.Parse(sr.ReadLine());
+        _stepCount = int.Parse(sr.ReadLine());
         _grid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
         _grid.filterMode = _interpolate ? FilterMode.Bilinear : FilterMode.Point;
         _wallTypes = new WallType[_gridSize + 2, _gridSize + 2];

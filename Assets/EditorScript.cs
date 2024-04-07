@@ -25,7 +25,10 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private GameObject _quad;
 
     [SerializeField]
-    private Toggle _interpolate;
+    private Toggle _interpolateToggle;
+
+    [SerializeField]
+    private Toggle _diffuseToggle;
 
     [SerializeField]
     private TMP_Dropdown _matterDropDown;
@@ -54,6 +57,12 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     [SerializeField]
     private TMP_Text _gravityText;
 
+    [SerializeField]
+    private Slider _stepCountSlider;
+
+    [SerializeField]
+    private TMP_Text _stepCountText;
+
     private int _gridSize;
 
     private MatterType _matterType;
@@ -63,6 +72,8 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private float _viscosity;
 
     private float _gravity;
+
+    private int _stepCount;
 
     private Texture2D _grid;
 
@@ -128,7 +139,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private void OnStartClick()
     {
         _persistence = Persistence.GetInstance();
-        _persistence.SaveSettings(_gridSize, _grid, _interpolate.isOn, _matterType, _timeStep, _viscosity, _gravity);
+        _persistence.SaveSettings(_gridSize, _grid, _interpolateToggle.isOn, _diffuseToggle.isOn, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
 
         SceneManager.LoadScene(2);
     }
@@ -141,6 +152,8 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private void OnMatterChanged(int value)
     {
         _matterType = _matterDropDown.options[value].text == "FLUID" ? MatterType.FLUID : MatterType.GAS;
+        _diffuseToggle.isOn = _matterType == MatterType.FLUID ? true : _diffuseToggle.isOn;
+        _diffuseToggle.interactable = _matterType == MatterType.GAS;
     }
 
     private void OnResolutionChanged(float value)
@@ -181,6 +194,12 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _gravity = value;
     }
 
+    private void OnStepCountChanged(float value)
+    {
+        _stepCountText.text = value.ToString();
+        _stepCount = (int)value;
+    }
+
     #endregion
 
     #region Private methods
@@ -194,6 +213,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _timeStepSlider.onValueChanged.AddListener((float value) => OnTimeStepChanged(value));
         _viscositySlider.onValueChanged.AddListener((float value) => OnViscosityChanged(value));
         _gravitySlider.onValueChanged.AddListener((float value) => OnGravityChanged(value));
+        _stepCountSlider.onValueChanged.AddListener((float value) => OnStepCountChanged(value));
     }
 
     private void SetupUI()
@@ -203,6 +223,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         SetupDropDown();
     }
 
+    //TODO test folyamatosan
     private void SetupSliders()
     {
         _resolutionSlider.minValue = 5;
@@ -212,22 +233,28 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _resolutionSlider.value = _gridSize;
 
         _timeStepSlider.minValue = 0;
-        _timeStepSlider.maxValue = 0.02f;
-        _timeStep = 0.01f;
+        _timeStepSlider.maxValue = 0.5f;
+        _timeStep = 0.2f;
         _timeStepText.text = _timeStep.ToString();
         _timeStepSlider.value = _timeStep;
 
-        _viscositySlider.minValue = 0.01f;
-        _viscositySlider.maxValue = 0.03f;
-        _viscosity = 0.02f;
+        _viscositySlider.minValue = 0.0001f;
+        _viscositySlider.maxValue = 0.01f;
+        _viscosity = 0.0002f;
         _viscosityText.text = _viscosity.ToString();
         _viscositySlider.value = _viscosity;
 
-        _gravitySlider.minValue = 90000;
-        _gravitySlider.maxValue = 110000;
-        _gravity = 100000;
+        _gravitySlider.minValue = 10;
+        _gravitySlider.maxValue = 20;
+        _gravity = 15;
         _gravityText.text = _gravity.ToString();
         _gravitySlider.value = _gravity;
+
+        _stepCountSlider.minValue = 10;
+        _stepCountSlider.maxValue = 100;
+        _stepCount = 40;
+        _stepCountText.text = _stepCount.ToString();
+        _stepCountSlider.value = _stepCount;
     }
 
     private void SetupGrid()

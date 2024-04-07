@@ -39,22 +39,22 @@ public class FluidBoundary
         switch (boundary_)
         {
             case BoundaryCondition.NO_SLIP_X:
-                vectorField_[0, x_] = -vectorField_[1, x_];
-                vectorField_[_gridSize + 1, x_] = -vectorField_[_gridSize, x_];
-                vectorField_[x_, 0] = vectorField_[x_, 1];
-                vectorField_[x_, _gridSize + 1] = vectorField_[x_, _gridSize];
+                vectorField_[0, x_] = -vectorField_[1, x_]; //left wall
+                vectorField_[_gridSize + 1, x_] = -vectorField_[_gridSize, x_]; //right wall
+                vectorField_[x_, 0] = vectorField_[x_, 1]; //lower wall
+                vectorField_[x_, _gridSize + 1] = vectorField_[x_, _gridSize]; //upper wall
                 break;
             case BoundaryCondition.NO_SLIP_Y:
-                vectorField_[0, x_] = vectorField_[1, x_];
-                vectorField_[_gridSize + 1, x_] = vectorField_[_gridSize, x_];
-                vectorField_[x_, 0] = -vectorField_[x_, 1];
-                vectorField_[x_, _gridSize + 1] = -vectorField_[x_, _gridSize];
+                vectorField_[0, x_] = vectorField_[1, x_]; //left wall
+                vectorField_[_gridSize + 1, x_] = vectorField_[_gridSize, x_]; //right wall
+                vectorField_[x_, 0] = -vectorField_[x_, 1]; //lower wall
+                vectorField_[x_, _gridSize + 1] = -vectorField_[x_, _gridSize]; //upper wall
                 break;
             case BoundaryCondition.NEUMANN:
-                vectorField_[0, x_] = vectorField_[1, x_];
-                vectorField_[_gridSize + 1, x_] = vectorField_[_gridSize, x_];
-                vectorField_[x_, 0] = vectorField_[x_, 1];
-                vectorField_[x_, _gridSize + 1] = vectorField_[x_, _gridSize];
+                vectorField_[0, x_] = vectorField_[1, x_]; //left wall
+                vectorField_[_gridSize + 1, x_] = vectorField_[_gridSize, x_]; //right wall
+                vectorField_[x_, 0] = vectorField_[x_, 1]; //lower wall
+                vectorField_[x_, _gridSize + 1] = vectorField_[x_, _gridSize]; //upper wall
                 break;
             default:
                 break;
@@ -155,7 +155,6 @@ public class FluidBoundary
 
     #region Public methods
 
-    //TODO debug
     public void SetBoundary(BoundaryCondition boundary_, float[,] vectorField_)
     {
         for (int x = 1; x < _gridSize + 1; ++x)
