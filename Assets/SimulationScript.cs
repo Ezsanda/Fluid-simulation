@@ -113,7 +113,7 @@ public class SimulationScript : MonoBehaviour
 
         _gridSize = _persistence.GridSize;
         _grid = _persistence.Grid;
-        _solver = new PDESolver(_gridSize, _persistence.Diffuse, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
+        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
         _colorRange = new Gradient();
 
         _quad.GetComponent<Renderer>().material.mainTexture = _grid;

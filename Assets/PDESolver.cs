@@ -25,8 +25,6 @@ public class PDESolver
 
     private float _viscosity;
 
-    private bool _diffuse;
-
     private FluidGrid _grid;
 
     private FluidBoundary _boundary;
@@ -47,7 +45,7 @@ public class PDESolver
 
     #region Constructor
 
-    public PDESolver(int gridSize_, bool diffuse_, float timeStep_, MatterType matterType_, float viscosity_, int stepCount_, float gravity_, WallType[,] wallTypes_)
+    public PDESolver(int gridSize_, float timeStep_, MatterType matterType_, float viscosity_, int stepCount_, float gravity_, WallType[,] wallTypes_)
     {
         _gridSize = gridSize_;
         _timeStep = timeStep_;
@@ -55,7 +53,6 @@ public class PDESolver
         _stepCount = stepCount_;
         _gravity = gravity_;
         _gridSpacing = 1.0F / _gridSize;
-        _diffuse = diffuse_;
         _matterType = matterType_;
 
         _grid = new FluidGrid(_gridSize);
@@ -131,7 +128,7 @@ public class PDESolver
             {
                 if (_boundary.WallTypes[x, y] == WallType.NONE)
                 {
-                    _grid.PreviousVelocityY[x, y] += (int)_matterType * _timeStep * _grid.Density[x, y] * _gravity;
+                    _grid.PreviousVelocityY[x, y] += (int)_matterType * _timeStep * _gravity * _grid.Density[x, y];
                 }
             }
         }
@@ -206,7 +203,7 @@ public class PDESolver
     {
         AddDensity(densityValue_,x_,y_);
 
-        if(_diffuse)
+        if(_matterType == MatterType.FLUID)
         {
             Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
             Swap(ref _grid.PreviousDensity, ref _grid.Density);
@@ -218,7 +215,7 @@ public class PDESolver
 
     public void UpdateDensity()
     {
-        if(_diffuse)
+        if(_matterType == MatterType.FLUID)
         {
             Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
             Swap(ref _grid.PreviousDensity, ref _grid.Density);

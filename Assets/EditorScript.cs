@@ -28,9 +28,6 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private Toggle _interpolateToggle;
 
     [SerializeField]
-    private Toggle _diffuseToggle;
-
-    [SerializeField]
     private TMP_Dropdown _matterDropDown;
 
     [SerializeField]
@@ -75,6 +72,8 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private int _stepCount;
 
+    private PaintHelper[,] _paintHelper;
+
     private Texture2D _grid;
 
     private Persistence _persistence;
@@ -99,12 +98,10 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         {
             (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates();
 
-            if (pixelHitCoordinates == (-1, -1) || !ValidCoordinate(pixelHitCoordinates))
+            if (pixelHitCoordinates != (-1, -1) && ValidCoordinate(pixelHitCoordinates) && Paintable(pixelHitCoordinates))
             {
-                return;
+                PaintCoordinates(pixelHitCoordinates);
             }
-
-            PaintCoordinates(pixelHitCoordinates);
         }
     }
 
@@ -139,7 +136,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private void OnStartClick()
     {
         _persistence = Persistence.GetInstance();
-        _persistence.SaveSettings(_gridSize, _grid, _interpolateToggle.isOn, _diffuseToggle.isOn, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
+        _persistence.SaveSettings(_gridSize, _grid, _interpolateToggle.isOn, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
 
         SceneManager.LoadScene(2);
     }
@@ -152,8 +149,6 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private void OnMatterChanged(int value)
     {
         _matterType = _matterDropDown.options[value].text == "FLUID" ? MatterType.FLUID : MatterType.GAS;
-        _diffuseToggle.isOn = _matterType == MatterType.FLUID ? true : _diffuseToggle.isOn;
-        _diffuseToggle.interactable = _matterType == MatterType.GAS;
     }
 
     private void OnResolutionChanged(float value)
@@ -174,6 +169,16 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         }
         _grid.Apply();
         _quad.GetComponent<Renderer>().material.mainTexture = _grid;
+
+        _paintHelper = new PaintHelper[_gridSize + 2, _gridSize + 2];
+
+        for (int x = 1; x < _gridSize + 1; ++x)
+        {
+            for (int y = 1; y < _gridSize + 1; ++y)
+            {
+                _paintHelper[x, y] = PaintHelper.NONE;
+            }
+        }
     }
 
     private void OnTimeStepChanged(float value)
@@ -220,6 +225,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     {
         SetupSliders();
         SetupGrid();
+        SetupPainter();
         SetupDropDown();
     }
 
@@ -259,19 +265,32 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void SetupGrid()
     {
-        _grid = new Texture2D(42, 42, TextureFormat.ARGB32, false);
+        _grid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
         _grid.filterMode = FilterMode.Point;
 
-        for (int x = 0; x < 42; ++x)
+        for (int x = 0; x < _gridSize + 2; ++x)
         {
-            for (int y = 0; y < 42; ++y)
+            for (int y = 0; y < _gridSize + 2; ++y)
             {
-                Color pixelColor = x == 0 || x == 41 || y == 0 || y == 41 ? Color.black : Color.white;
+                Color pixelColor = x == 0 || x == _gridSize + 1 || y == 0 || y == _gridSize + 1 ? Color.black : Color.white;
                 _grid.SetPixel(x, y, pixelColor);
             }
         }
         _grid.Apply();
         _quad.GetComponent<Renderer>().material.mainTexture = _grid;
+    }
+
+    private void SetupPainter()
+    {
+        _paintHelper = new PaintHelper[_gridSize + 2, _gridSize + 2];
+
+        for (int x = 1; x < _gridSize + 1; ++x)
+        {
+            for (int y = 1; y < _gridSize + 1; ++y)
+            {
+                _paintHelper[x, y] = PaintHelper.NONE;
+            }
+        }
     }
 
     private void SetupDropDown()
@@ -307,32 +326,36 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         return (-1, -1);
     }
 
+    private void PaintCoordinates((int x, int y) pixelCoordinate_)
+    {
+        Color pixelColor = _rightDown ? Color.white : Color.black;
+
+        _grid.SetPixel(pixelCoordinate_.x, pixelCoordinate_.y, pixelColor);
+        _grid.SetPixel(pixelCoordinate_.x + 1, pixelCoordinate_.y, pixelColor);
+        _grid.SetPixel(pixelCoordinate_.x, pixelCoordinate_.y - 1, pixelColor);
+        _grid.SetPixel(pixelCoordinate_.x + 1, pixelCoordinate_.y - 1, pixelColor);
+
+        _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y] = _rightDown ? PaintHelper.NONE : PaintHelper.TOPLEFT;
+        _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y] = _rightDown ? PaintHelper.NONE : PaintHelper.TOPRIGHT;
+        _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y - 1] = _rightDown ? PaintHelper.NONE : PaintHelper.BOTTOMLEFT;
+        _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y - 1] = _rightDown ? PaintHelper.NONE : PaintHelper.BOTTOMRIGHT;
+
+        _grid.Apply();
+    }
+
     private bool ValidCoordinate((int x, int y) pixelCoordinate_)
     {
         return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _gridSize + 1 &&
                pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1;
     }
 
-    //TODO szebben
-    private void PaintCoordinates((int x, int y) pixelCoordinate_)
+    private bool Paintable((int x, int y) pixelCoordinate_)
     {
-        Color pixelColor = _rightDown ? Color.white : Color.black;
-
-        _grid.SetPixel(pixelCoordinate_.x, pixelCoordinate_.y, pixelColor);
-
-        if(pixelCoordinate_.x + 1 != _gridSize + 1)
-        {
-            _grid.SetPixel(pixelCoordinate_.x + 1, pixelCoordinate_.y, pixelColor);
-        }
-        if(pixelCoordinate_.y - 1 != 0)
-        {
-            _grid.SetPixel(pixelCoordinate_.x, pixelCoordinate_.y - 1, pixelColor);
-        }
-        if(pixelCoordinate_.x + 1 != _gridSize + 1 && pixelCoordinate_.y - 1 != 0)
-        {
-            _grid.SetPixel(pixelCoordinate_.x + 1, pixelCoordinate_.y - 1, pixelColor);
-        }
-        _grid.Apply();
+        return (_leftDown && _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y] == PaintHelper.NONE &&
+                             _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y] == PaintHelper.NONE &&
+                             _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y - 1] == PaintHelper.NONE &&
+                             _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y - 1] == PaintHelper.NONE) ||
+               (_rightDown && _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y] == PaintHelper.TOPLEFT);
     }
 
     #endregion

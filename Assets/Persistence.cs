@@ -15,8 +15,6 @@ public class Persistence
 
 	private bool _interpolate;
 
-    private bool _diffuse;
-
 	private MatterType _matterType;
 
 	private float _timeStep;
@@ -38,8 +36,6 @@ public class Persistence
 	public int GridSize { get { return _gridSize; } }
 
     public bool Interpolate { get { return _interpolate; } }
-
-    public bool Diffuse { get { return _diffuse; } }
 
     public MatterType MatterType { get { return _matterType; } }
 
@@ -121,12 +117,11 @@ public class Persistence
         return _instance;
     }
 
-	public void SaveSettings(int gridSize_, Texture2D grid_, bool interpolate_, bool diffuse_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
+	public void SaveSettings(int gridSize_, Texture2D grid_, bool interpolate_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
 	{
 		StreamWriter sr = new StreamWriter("settings.txt", false);
         sr.WriteLine(gridSize_);
         sr.WriteLine(interpolate_);
-        sr.WriteLine(diffuse_);
         sr.WriteLine(matterType_);
         sr.WriteLine(timeStep_);
         sr.WriteLine(viscosity_);
@@ -150,7 +145,6 @@ public class Persistence
         StreamReader sr = new StreamReader("settings.txt");
 		_gridSize = int.Parse(sr.ReadLine());
         _interpolate = bool.Parse(sr.ReadLine());
-        _diffuse = bool.Parse(sr.ReadLine());
         _matterType = sr.ReadLine() == "FLUID" ? MatterType.FLUID : MatterType.GAS;
         _timeStep = float.Parse(sr.ReadLine());
         _viscosity = float.Parse(sr.ReadLine());
