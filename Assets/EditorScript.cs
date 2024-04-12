@@ -22,10 +22,16 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private Button _menuButton;
 
     [SerializeField]
-    private GameObject _quad;
+    private GameObject _editorQuad;
+
+    [SerializeField]
+    private GameObject _colorPickerQuad;
 
     [SerializeField]
     private Toggle _interpolateToggle;
+
+    [SerializeField]
+    private Toggle _diffuseToggle;
 
     [SerializeField]
     private TMP_Dropdown _matterDropDown;
@@ -60,6 +66,9 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     [SerializeField]
     private TMP_Text _stepCountText;
 
+    [SerializeField]
+    private Button _colorPickerButton;
+
     private int _gridSize;
 
     private MatterType _matterType;
@@ -76,11 +85,15 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private Texture2D _grid;
 
+    private Texture2D _colorPickerTexture;
+
     private Persistence _persistence;
 
     private bool _leftDown;
 
     private bool _rightDown;
+
+    private bool _colorPickerOpen;
 
     #endregion
 
@@ -92,15 +105,25 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         SetupUI();
     }
 
+    //TODO szebben
     void Update()
     {
-        if(_leftDown || _rightDown)
+        if(!_colorPickerOpen && (_leftDown || _rightDown))
         {
-            (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates();
+            (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates(_editorQuad, _grid);
 
             if (pixelHitCoordinates != (-1, -1) && ValidCoordinate(pixelHitCoordinates) && Paintable(pixelHitCoordinates))
             {
                 PaintCoordinates(pixelHitCoordinates);
+            }
+        }
+        else if(_colorPickerOpen && _leftDown)
+        {
+            (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates(_colorPickerQuad, _colorPickerTexture);
+
+            if (pixelHitCoordinates != (-1, -1) && ValidCoordinate(pixelHitCoordinates))
+            {
+                _colorPickerButton.image.color = _colorPickerTexture.GetPixel(pixelHitCoordinates.x, pixelHitCoordinates.y);
             }
         }
     }
@@ -136,7 +159,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private void OnStartClick()
     {
         _persistence = Persistence.GetInstance();
-        _persistence.SaveSettings(_gridSize, _grid, _interpolateToggle.isOn, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
+        _persistence.SaveSettings(_gridSize, _grid, _colorPickerButton.image.color, _interpolateToggle.isOn, _diffuseToggle.isOn, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
 
         SceneManager.LoadScene(2);
     }
@@ -146,9 +169,49 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         SceneManager.LoadScene(0);
     }
 
+    private void OnColorPickerClick()
+    {
+        _colorPickerOpen = !_colorPickerOpen;
+        _startButton.interactable = !_colorPickerOpen;
+
+        for (int x = 0; x < _gridSize + 2; ++x)
+        {
+            for (int y = 0; y < _gridSize + 2; ++y)
+            {
+                if(x > 26 && x <39 && y > 2 && y < 18)
+                {
+                    Color pixelColor = _colorPickerOpen ? new Color(255, 255, 255, 0) : Color.white;
+                    _grid.SetPixel(x, y, pixelColor);
+                }
+            }
+        }
+        _grid.Apply();
+    }
+
+    //TODO
     private void OnMatterChanged(int value)
     {
-        _matterType = _matterDropDown.options[value].text == "FLUID" ? MatterType.FLUID : MatterType.GAS;
+        switch ((MatterType)value)
+        {
+            case MatterType.NONE:
+                ChangeInteractableState(true);
+                break;
+            case MatterType.WATER:
+                //SetParameters();
+                ChangeInteractableState(false);
+                break;
+            case MatterType.HONEY:
+                //SetParameters();
+                ChangeInteractableState(false);
+                break;
+            case MatterType.HIDROGEN:
+                //SetParameters();
+                ChangeInteractableState(false);
+                break;
+            default:
+                break;
+        }
+        _matterType = (MatterType)value;
     }
 
     private void OnResolutionChanged(float value)
@@ -168,7 +231,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
             }
         }
         _grid.Apply();
-        _quad.GetComponent<Renderer>().material.mainTexture = _grid;
+        _editorQuad.GetComponent<Renderer>().material.mainTexture = _grid;
 
         _paintHelper = new PaintHelper[_gridSize + 2, _gridSize + 2];
 
@@ -213,6 +276,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     {
         _startButton.onClick.AddListener(() => OnStartClick());
         _menuButton.onClick.AddListener(() => OnMenuClick());
+        _colorPickerButton.onClick.AddListener(() => OnColorPickerClick());
         _matterDropDown.onValueChanged.AddListener((int value) => OnMatterChanged(value));
         _resolutionSlider.onValueChanged.AddListener((float value) => OnResolutionChanged(value));
         _timeStepSlider.onValueChanged.AddListener((float value) => OnTimeStepChanged(value));
@@ -224,9 +288,9 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private void SetupUI()
     {
         SetupSliders();
-        SetupGrid();
+        SetupTextures();
         SetupPainter();
-        SetupDropDown();
+        SetupDropDowns();
     }
 
     //TODO test folyamatosan
@@ -263,7 +327,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _stepCountSlider.value = _stepCount;
     }
 
-    private void SetupGrid()
+    private void SetupTextures()
     {
         _grid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
         _grid.filterMode = FilterMode.Point;
@@ -277,7 +341,23 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
             }
         }
         _grid.Apply();
-        _quad.GetComponent<Renderer>().material.mainTexture = _grid;
+        _editorQuad.GetComponent<Renderer>().material.mainTexture = _grid;
+
+        _colorPickerTexture = new Texture2D(256, 256, TextureFormat.ARGB32, false);
+
+        for (int x = 0; x < 255; ++x)
+        {
+            for (int y = 0; y < 255; ++y)
+            {
+                float hue = x / 255.0f;
+                Color pixelColor = Color.HSVToRGB(hue, 1.0f, 1.0f);
+                _colorPickerTexture.SetPixel(x, y, pixelColor);
+            }
+        }
+        _colorPickerTexture.Apply();
+        _colorPickerQuad.GetComponent<Renderer>().material.mainTexture = _colorPickerTexture;
+
+        _colorPickerOpen = false;
     }
 
     private void SetupPainter()
@@ -293,7 +373,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         }
     }
 
-    private void SetupDropDown()
+    private void SetupDropDowns()
     {
         List<TMP_Dropdown.OptionData> matterOptions = new List<TMP_Dropdown.OptionData>();
         foreach (var matterType in Enum.GetNames(typeof(MatterType)))
@@ -304,7 +384,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _matterDropDown.AddOptions(matterOptions);
     }
 
-    private (int, int) CalculatePixelCoordinates()
+    private (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_)
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
@@ -312,10 +392,10 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         if (Physics.Raycast(ray, out hit, Mathf.Infinity))
         {
             Vector2 textCoord = hit.textureCoord;
-            textCoord.x *= _grid.width;
-            textCoord.y *= _grid.height;
+            textCoord.x *= texture_.width;
+            textCoord.y *= texture_.height;
 
-            Vector2 tiling = _quad.GetComponent<Renderer>().material.mainTextureScale;
+            Vector2 tiling = quad_.GetComponent<Renderer>().material.mainTextureScale;
 
             int pixelHitX = Mathf.FloorToInt(textCoord.x * tiling.x);
             int pixelHitY = Mathf.FloorToInt(textCoord.y * tiling.y);
@@ -349,13 +429,79 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
                pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1;
     }
 
+    //TODO szebben
     private bool Paintable((int x, int y) pixelCoordinate_)
     {
-        return (_leftDown && _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y] == PaintHelper.NONE &&
-                             _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y] == PaintHelper.NONE &&
-                             _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y - 1] == PaintHelper.NONE &&
-                             _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y - 1] == PaintHelper.NONE) ||
-               (_rightDown && _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y] == PaintHelper.TOPLEFT);
+        if(pixelCoordinate_.x == _gridSize || pixelCoordinate_.y == 1)
+        {
+            return false;
+        }
+
+        bool paintable = true;
+
+        PaintHelper innerTopLeft = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y];
+        PaintHelper innerTopRight = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y];
+        PaintHelper innerBottomRight = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y - 1];
+        PaintHelper innerBottomLeft = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y - 1];
+
+        //clockwise
+        PaintHelper outerTopLeft = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y + 1];
+        PaintHelper outerTop1 = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y + 1];
+        PaintHelper outerTop2 = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y + 1];
+        PaintHelper outerTopRight = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y + 1];
+        PaintHelper outerRight1 = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y];
+        PaintHelper outerRight2 = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y - 1];
+        PaintHelper outerBottomRight = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y - 2];
+        PaintHelper outerBottom1 = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y - 2];
+        PaintHelper outerBottom2 = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y - 2];
+        PaintHelper outerBottomLeft = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y - 2];
+        PaintHelper outerLeft1 = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y - 1];
+        PaintHelper outerLeft2 = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y];
+
+        bool skipTopAndRight = outerTop2 != PaintHelper.NONE || outerRight1 != PaintHelper.NONE;
+        bool skipRightAndBottom = outerRight2 != PaintHelper.NONE || outerBottom1 != PaintHelper.NONE;
+        bool skipBottomAndLeft = outerBottom2 != PaintHelper.NONE || outerLeft1 != PaintHelper.NONE;
+        bool skipLeftAndTop = outerLeft2 != PaintHelper.NONE || outerTop1 != PaintHelper.NONE;
+
+        if(_leftDown && !skipTopAndRight)
+        {
+            paintable &= outerTopRight == PaintHelper.NONE;
+        }
+        if(_leftDown && !skipRightAndBottom)
+        {
+            paintable &= outerBottomRight == PaintHelper.NONE;
+        }
+        if(_leftDown && !skipBottomAndLeft)
+        {
+            paintable &= outerBottomLeft == PaintHelper.NONE;
+        }
+        if(_leftDown && !skipLeftAndTop)
+        {
+            paintable &= outerTopLeft == PaintHelper.NONE;
+        }
+
+        paintable &=  (_leftDown &&
+                      innerTopLeft == PaintHelper.NONE && innerTopRight == PaintHelper.NONE &&
+                      innerBottomLeft == PaintHelper.NONE && innerBottomRight == PaintHelper.NONE) ||
+                      (_rightDown &&
+                      innerTopLeft == PaintHelper.TOPLEFT);
+
+        return paintable;
+    }
+
+    private void SetParameters(int stepCount_, float gravity_, float viscosity_, float timeStep_, bool interpolate_, bool diffuse_, Color fluidColor_)
+    {
+        //TODO
+    }
+
+    private void ChangeInteractableState(bool stateValue_)
+    {
+        _stepCountSlider.interactable = stateValue_;
+        _gravitySlider.interactable = stateValue_;
+        _viscositySlider.interactable = stateValue_;
+        _timeStepSlider.interactable = stateValue_;
+        _interpolateToggle.interactable = stateValue_;
+        _diffuseToggle.interactable = stateValue_;
     }
 
     #endregion

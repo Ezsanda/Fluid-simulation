@@ -13,5 +13,5 @@ public enum WallType
     BOTTOMRIGHT,
     BOTTOM,
     BOTTOMLEFT,
-    LEFT,
+    LEFT
 }

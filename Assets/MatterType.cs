@@ -4,6 +4,8 @@ using UnityEngine;
 
 public enum MatterType
 {
-    FLUID = -1,
-    GAS = 1
+    NONE,
+    WATER,
+    HONEY,
+    HIDROGEN
 }

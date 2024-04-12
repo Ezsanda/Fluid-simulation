@@ -25,9 +25,15 @@ public class Persistence
 
     private int _stepCount;
 
-	private Texture2D _grid;
+	private Texture2D _fluidGrid;
+
+    private Texture2D _wallGrid;
 
     private WallType[,] _wallTypes;
+
+    private bool _diffuse;
+
+    private Color _fluidColor;
 
 	#endregion
 
@@ -47,9 +53,15 @@ public class Persistence
 
     public int StepCount { get { return _stepCount; } }
 
-    public Texture2D Grid { get { return _grid; } }
+    public Texture2D FluidGrid { get { return _fluidGrid; } }
+
+    public Texture2D WallGrid { get { return _wallGrid; } }
 
     public WallType[,] WallTypes { get { return _wallTypes; } }
+
+    public bool Diffuse { get { return _diffuse; } }
+
+    public Color FluidColor { get { return _fluidColor; } }
 
     #endregion
 
@@ -117,12 +129,16 @@ public class Persistence
         return _instance;
     }
 
-	public void SaveSettings(int gridSize_, Texture2D grid_, bool interpolate_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
+	public void SaveSettings(int gridSize_, Texture2D grid_, Color fluidColor_, bool interpolate_, bool diffuse_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
 	{
 		StreamWriter sr = new StreamWriter("settings.txt", false);
         sr.WriteLine(gridSize_);
+        sr.WriteLine(fluidColor_.r);
+        sr.WriteLine(fluidColor_.g);
+        sr.WriteLine(fluidColor_.b);
         sr.WriteLine(interpolate_);
-        sr.WriteLine(matterType_);
+        sr.WriteLine(diffuse_);
+        sr.WriteLine((int)matterType_);
         sr.WriteLine(timeStep_);
         sr.WriteLine(viscosity_);
         sr.WriteLine(gravity_);
@@ -144,22 +160,29 @@ public class Persistence
     {
         StreamReader sr = new StreamReader("settings.txt");
 		_gridSize = int.Parse(sr.ReadLine());
+        _fluidColor = new Color(float.Parse(sr.ReadLine()), float.Parse(sr.ReadLine()), float.Parse(sr.ReadLine()));
         _interpolate = bool.Parse(sr.ReadLine());
-        _matterType = sr.ReadLine() == "FLUID" ? MatterType.FLUID : MatterType.GAS;
+        _diffuse = bool.Parse(sr.ReadLine());
+        _matterType = (MatterType)int.Parse(sr.ReadLine());
         _timeStep = float.Parse(sr.ReadLine());
         _viscosity = float.Parse(sr.ReadLine());
         _gravity = float.Parse(sr.ReadLine());
         _stepCount = int.Parse(sr.ReadLine());
-        _grid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
-        _grid.filterMode = _interpolate ? FilterMode.Bilinear : FilterMode.Point;
+        _fluidGrid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
+        _fluidGrid.filterMode = _interpolate ? FilterMode.Bilinear : FilterMode.Point;
+        _wallGrid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
+        _wallGrid.filterMode = FilterMode.Point;
         _wallTypes = new WallType[_gridSize + 2, _gridSize + 2];
+
+        Color wallColor = new Color(0, 0, 0, 255);
+        Color transparentColor = new Color(255, 255, 255, 0);
 
         for (int x = _gridSize; x > 0; --x)
 		{
-            _grid.SetPixel(x, 0, Color.black);
-            _grid.SetPixel(x, _gridSize + 1, Color.black);
-            _grid.SetPixel(0, x, Color.black);
-            _grid.SetPixel(_gridSize + 1, x, Color.black);
+            _wallGrid.SetPixel(x, 0, wallColor);
+            _wallGrid.SetPixel(x, _gridSize + 1, wallColor);
+            _wallGrid.SetPixel(0, x, wallColor);
+            _wallGrid.SetPixel(_gridSize + 1, x, wallColor);
 
 			string line = sr.ReadLine();
 			for (int y = 1; y < _gridSize + 1; ++y)
@@ -167,16 +190,23 @@ public class Persistence
                 WallType currentPixel = (WallType)int.Parse(line[y - 1].ToString());
                 if (currentPixel != WallType.NONE)
                 {
-                    _grid.SetPixel(y, x, Color.black);
+                    _wallGrid.SetPixel(y, x, wallColor);
+                }
+                else
+                {
+                    _wallGrid.SetPixel(y, x, transparentColor);
                 }
                 _wallTypes[y, x] = currentPixel;
+                _fluidGrid.SetPixel(y, x, Color.white);
             }
 		}
-        _grid.SetPixel(0, 0, Color.black);
-        _grid.SetPixel(0, _gridSize + 1, Color.black);
-        _grid.SetPixel(_gridSize + 1, 0, Color.black);
-        _grid.SetPixel(_gridSize + 1, _gridSize + 1, Color.black);
-        _grid.Apply();
+        _wallGrid.SetPixel(0, 0, wallColor);
+        _wallGrid.SetPixel(0, _gridSize + 1, wallColor);
+        _wallGrid.SetPixel(_gridSize + 1, 0, wallColor);
+        _wallGrid.SetPixel(_gridSize + 1, _gridSize + 1, wallColor);
+
+        _fluidGrid.Apply();
+        _wallGrid.Apply();
 
 		sr.Close();
     }

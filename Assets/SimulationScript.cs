@@ -11,14 +11,19 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System;
 using UnityEngine.Assertions.Must;
+using UnityEngine.EventSystems;
+using UnityEngine.Animations;
 
-public class SimulationScript : MonoBehaviour
+public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 {
 
     #region Fields
 
     [SerializeField]
-    private GameObject _quad;
+    private GameObject _fluidQuad;
+
+    [SerializeField]
+    private GameObject _wallQuad;
 
     [SerializeField]
     private Slider _densitySlider;
@@ -32,11 +37,20 @@ public class SimulationScript : MonoBehaviour
     [SerializeField]
     private Button _pauseButton;
 
+    [SerializeField]
+    private Button _restartButton;
+
     private int _gridSize;
 
     private bool _isSimulating = true;
 
-    private Texture2D _grid;
+    private bool _leftDown;
+
+    private bool _rightDown;
+
+    private Texture2D _fluidGrid;
+
+    private Texture2D _wallGrid;
 
     private PDESolver _solver;
 
@@ -44,22 +58,24 @@ public class SimulationScript : MonoBehaviour
 
     private Persistence _persistence;
 
+    private Color _fluidColor;
+
     #endregion
 
     #region Game methods
 
     void Start()
     {
-        InitializeEntities();
+        AddEventHandlers();
+        SetupUI();
     }
 
+    //TODO szebben
     void FixedUpdate()
     {
         if (_isSimulating)
         {
-            _solver.UpdateVelocity();
-
-            if (Input.GetMouseButtonDown(0))
+            if(_leftDown || _rightDown)
             {
                 (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates();
 
@@ -68,14 +84,50 @@ public class SimulationScript : MonoBehaviour
                     return;
                 }
 
-                _solver.UpdateDensity(_densitySlider.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
+                if(_leftDown)
+                {
+                    _solver.UpdateVelocity();
+                    _solver.UpdateDensity(_densitySlider.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
+                }
+                else
+                {
+                    (int x, int y) direction = CalculateDirection(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+                    _solver.UpdateVelocity(direction.x, direction.y, pixelHitCoordinates.x, pixelHitCoordinates.y);
+                    _solver.UpdateDensity();
+                }
+
             }
             else
             {
+                _solver.UpdateVelocity();
                 _solver.UpdateDensity();
             }
 
             UpdateColors();
+        }
+    }
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if(eventData.button == PointerEventData.InputButton.Left)
+        {
+            _leftDown = true;
+        }
+        else if (eventData.button == PointerEventData.InputButton.Right)
+        {
+            _rightDown = true;
+        }
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        if(eventData.button == PointerEventData.InputButton.Left)
+        {
+            _leftDown = false;
+        }
+        else if (eventData.button == PointerEventData.InputButton.Right)
+        {
+            _rightDown = false;
         }
     }
 
@@ -98,25 +150,43 @@ public class SimulationScript : MonoBehaviour
         _isSimulating = !_isSimulating;
     }
 
+    private void OnRestartClick()
+    {
+        _gridSize = _persistence.GridSize;
+        _fluidGrid = _persistence.FluidGrid;
+        _wallGrid = _persistence.WallGrid;
+        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.Diffuse, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
+
+        _densitySlider.value = 1;
+        _densityText.text = _densitySlider.value.ToString();
+    }
+
     #endregion
 
     #region Private methods
 
-    private void InitializeEntities()
+    private void AddEventHandlers()
     {
         _densitySlider.onValueChanged.AddListener((float value) => OnDensityChanged(value));
         _editorButton.onClick.AddListener(() => OnEditorClick());
         _pauseButton.onClick.AddListener(() => OnPauseClick());
+        _restartButton.onClick.AddListener(() => OnRestartClick());
+    }
 
+    private void SetupUI()
+    {
         _persistence = Persistence.GetInstance();
         _persistence.LoadSettings();
 
         _gridSize = _persistence.GridSize;
-        _grid = _persistence.Grid;
-        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterType, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
+        _fluidGrid = _persistence.FluidGrid;
+        _wallGrid = _persistence.WallGrid;
+        _fluidColor = _persistence.FluidColor;
+        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.Diffuse, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
         _colorRange = new Gradient();
 
-        _quad.GetComponent<Renderer>().material.mainTexture = _grid;
+        _fluidQuad.GetComponent<Renderer>().material.mainTexture = _fluidGrid;
+        _wallQuad.GetComponent<Renderer>().material.mainTexture = _wallGrid;
 
         _densitySlider.minValue = 1;
         _densitySlider.maxValue = 10;
@@ -134,11 +204,11 @@ public class SimulationScript : MonoBehaviour
                 if(_solver.Boundary.WallTypes[x, y] == WallType.NONE)
                 {
                     Color pixelColor = CalculatePixelColor(x, y);
-                    _grid.SetPixel(x, y, pixelColor);
+                    _fluidGrid.SetPixel(x, y, pixelColor);
                 }
             }
         }
-        _grid.Apply();
+        _fluidGrid.Apply();
     }
 
     private (int, int) CalculatePixelCoordinates()
@@ -149,10 +219,10 @@ public class SimulationScript : MonoBehaviour
         if (Physics.Raycast(ray, out hit, Mathf.Infinity))
         {
             Vector2 textCoord = hit.textureCoord;
-            textCoord.x *= _grid.width;
-            textCoord.y *= _grid.height;
+            textCoord.x *= _fluidGrid.width;
+            textCoord.y *= _fluidGrid.height;
 
-            Vector2 tiling = _quad.GetComponent<Renderer>().material.mainTextureScale;
+            Vector2 tiling = _fluidQuad.GetComponent<Renderer>().material.mainTextureScale;
 
             int pixelHitX = Mathf.FloorToInt(textCoord.x * tiling.x);
             int pixelHitY = Mathf.FloorToInt(textCoord.y * tiling.y);
@@ -173,7 +243,24 @@ public class SimulationScript : MonoBehaviour
         pixelIntensity = pixelIntensity < 0 ? 0 : pixelIntensity > 1 ? 1 : pixelIntensity;
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];
-        colorKeys[0] = _persistence.MatterType == MatterType.FLUID ? new GradientColorKey(Color.blue, 1.0F) : new GradientColorKey(Color.yellow, 1.0F);
+
+        switch (_persistence.MatterType)
+        {
+            case MatterType.NONE:
+                colorKeys[0] = new GradientColorKey(_fluidColor, 1.0F);
+                break;
+            case MatterType.WATER:
+                colorKeys[0] = new GradientColorKey(Color.blue, 1.0F);
+                break;
+            case MatterType.HONEY:
+                break;
+            case MatterType.HIDROGEN:
+                colorKeys[0] = new GradientColorKey(Color.yellow, 1.0F);
+                break;
+            default:
+                break;
+        }
+
         colorKeys[1] = new GradientColorKey(Color.white, 0.0F);
 
         GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];
@@ -191,6 +278,14 @@ public class SimulationScript : MonoBehaviour
         return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _gridSize + 1 &&
                pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1 &&
                _solver.Boundary.WallTypes[pixelCoordinate_.x, pixelCoordinate_.y] == WallType.NONE;
+    }
+
+    private (int,int) CalculateDirection(float horizontal_, float vertical_)
+    {
+        int outX = horizontal_ < 0 ? -3 : horizontal_ > 0 ? 3 : 0;
+        int outY = vertical_ < 0 ? -3 : vertical_ > 0 ? 3 : 0;
+
+        return (outX, outY);
     }
 
     #endregion
