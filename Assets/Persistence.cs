@@ -15,6 +15,8 @@ public class Persistence
 
 	private bool _interpolate;
 
+    private MatterState _matterState;
+
 	private MatterType _matterType;
 
 	private float _timeStep;
@@ -31,8 +33,6 @@ public class Persistence
 
     private WallType[,] _wallTypes;
 
-    private bool _diffuse;
-
     private Color _fluidColor;
 
 	#endregion
@@ -42,6 +42,8 @@ public class Persistence
 	public int GridSize { get { return _gridSize; } }
 
     public bool Interpolate { get { return _interpolate; } }
+
+    public MatterState MatterState { get { return _matterState; } }
 
     public MatterType MatterType { get { return _matterType; } }
 
@@ -58,8 +60,6 @@ public class Persistence
     public Texture2D WallGrid { get { return _wallGrid; } }
 
     public WallType[,] WallTypes { get { return _wallTypes; } }
-
-    public bool Diffuse { get { return _diffuse; } }
 
     public Color FluidColor { get { return _fluidColor; } }
 
@@ -129,7 +129,7 @@ public class Persistence
         return _instance;
     }
 
-	public void SaveSettings(int gridSize_, Texture2D grid_, Color fluidColor_, bool interpolate_, bool diffuse_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
+	public void SaveSettings(int gridSize_, Texture2D grid_, Color fluidColor_, bool interpolate_, MatterState matterState_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
 	{
 		StreamWriter sr = new StreamWriter("settings.txt", false);
         sr.WriteLine(gridSize_);
@@ -137,7 +137,7 @@ public class Persistence
         sr.WriteLine(fluidColor_.g);
         sr.WriteLine(fluidColor_.b);
         sr.WriteLine(interpolate_);
-        sr.WriteLine(diffuse_);
+        sr.WriteLine((int)matterState_);
         sr.WriteLine((int)matterType_);
         sr.WriteLine(timeStep_);
         sr.WriteLine(viscosity_);
@@ -162,7 +162,7 @@ public class Persistence
 		_gridSize = int.Parse(sr.ReadLine());
         _fluidColor = new Color(float.Parse(sr.ReadLine()), float.Parse(sr.ReadLine()), float.Parse(sr.ReadLine()));
         _interpolate = bool.Parse(sr.ReadLine());
-        _diffuse = bool.Parse(sr.ReadLine());
+        _matterState = (MatterState)int.Parse(sr.ReadLine());
         _matterType = (MatterType)int.Parse(sr.ReadLine());
         _timeStep = float.Parse(sr.ReadLine());
         _viscosity = float.Parse(sr.ReadLine());

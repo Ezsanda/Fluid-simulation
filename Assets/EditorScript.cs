@@ -9,6 +9,7 @@ using TMPro;
 using System;
 using TMPro.EditorUtilities;
 using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
 
 public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 {
@@ -22,6 +23,12 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private Button _menuButton;
 
     [SerializeField]
+    private Button _resetButton;
+
+    [SerializeField]
+    private Button _colorPickerButton;
+
+    [SerializeField]
     private GameObject _editorQuad;
 
     [SerializeField]
@@ -31,10 +38,10 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private Toggle _interpolateToggle;
 
     [SerializeField]
-    private Toggle _diffuseToggle;
+    private TMP_Dropdown _matterStateDropDown;
 
     [SerializeField]
-    private TMP_Dropdown _matterDropDown;
+    private TMP_Dropdown _matterTypeDropDown;
 
     [SerializeField]
     private Slider _resolutionSlider;
@@ -66,10 +73,9 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     [SerializeField]
     private TMP_Text _stepCountText;
 
-    [SerializeField]
-    private Button _colorPickerButton;
-
     private int _gridSize;
+
+    private MatterState _matterState;
 
     private MatterType _matterType;
 
@@ -105,27 +111,22 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         SetupUI();
     }
 
-    //TODO szebben
     void Update()
     {
-        if(!_colorPickerOpen && (_leftDown || _rightDown))
+        try
         {
-            (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates(_editorQuad, _grid);
-
-            if (pixelHitCoordinates != (-1, -1) && ValidCoordinate(pixelHitCoordinates) && Paintable(pixelHitCoordinates))
+            if(!_colorPickerOpen && (_leftDown || _rightDown))
             {
+                (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_editorQuad, _grid, _paintHelper, _leftDown);
                 PaintCoordinates(pixelHitCoordinates);
             }
-        }
-        else if(_colorPickerOpen && _leftDown)
-        {
-            (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates(_colorPickerQuad, _colorPickerTexture);
-
-            if (pixelHitCoordinates != (-1, -1) && ValidCoordinate(pixelHitCoordinates))
+            else if(_colorPickerOpen && _leftDown)
             {
+                (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_colorPickerQuad, _colorPickerTexture);
                 _colorPickerButton.image.color = _colorPickerTexture.GetPixel(pixelHitCoordinates.x, pixelHitCoordinates.y);
             }
         }
+        catch (Exception e) when (e is NotHitException || e is InValidCoordinateException || e is NotPaintableException) {}
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -159,7 +160,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     private void OnStartClick()
     {
         _persistence = Persistence.GetInstance();
-        _persistence.SaveSettings(_gridSize, _grid, _colorPickerButton.image.color, _interpolateToggle.isOn, _diffuseToggle.isOn, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
+        _persistence.SaveSettings(_gridSize, _grid, _colorPickerButton.image.color, _interpolateToggle.isOn, _matterState, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
 
         SceneManager.LoadScene(2);
     }
@@ -169,27 +170,27 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         SceneManager.LoadScene(0);
     }
 
+    private void OnResetClick()
+    {
+        SetupUI();
+    }
+
     private void OnColorPickerClick()
     {
         _colorPickerOpen = !_colorPickerOpen;
         _startButton.interactable = !_colorPickerOpen;
 
-        for (int x = 0; x < _gridSize + 2; ++x)
-        {
-            for (int y = 0; y < _gridSize + 2; ++y)
-            {
-                if(x > 26 && x <39 && y > 2 && y < 18)
-                {
-                    Color pixelColor = _colorPickerOpen ? new Color(255, 255, 255, 0) : Color.white;
-                    _grid.SetPixel(x, y, pixelColor);
-                }
-            }
-        }
-        _grid.Apply();
+        _colorPickerQuad.GetComponent<Renderer>().sortingOrder = _colorPickerOpen ? 1 : 0;
+        _editorQuad.GetComponent<Renderer>().sortingOrder = _colorPickerOpen ? 0 : 1;
+    }
+
+    private void OnMatterStateChanged(int value)
+    {
+        _matterState = (MatterState)value;
     }
 
     //TODO
-    private void OnMatterChanged(int value)
+    private void OnMatterTypeChanged(int value)
     {
         switch ((MatterType)value)
         {
@@ -276,8 +277,10 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     {
         _startButton.onClick.AddListener(() => OnStartClick());
         _menuButton.onClick.AddListener(() => OnMenuClick());
+        _resetButton.onClick.AddListener(() => OnResetClick());
         _colorPickerButton.onClick.AddListener(() => OnColorPickerClick());
-        _matterDropDown.onValueChanged.AddListener((int value) => OnMatterChanged(value));
+        _matterStateDropDown.onValueChanged.AddListener((int value) => OnMatterStateChanged(value));
+        _matterTypeDropDown.onValueChanged.AddListener((int value) => OnMatterTypeChanged(value));
         _resolutionSlider.onValueChanged.AddListener((float value) => OnResolutionChanged(value));
         _timeStepSlider.onValueChanged.AddListener((float value) => OnTimeStepChanged(value));
         _viscositySlider.onValueChanged.AddListener((float value) => OnViscosityChanged(value));
@@ -357,6 +360,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _colorPickerTexture.Apply();
         _colorPickerQuad.GetComponent<Renderer>().material.mainTexture = _colorPickerTexture;
 
+        _colorPickerButton.image.color = Color.blue;
         _colorPickerOpen = false;
     }
 
@@ -375,35 +379,21 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void SetupDropDowns()
     {
-        List<TMP_Dropdown.OptionData> matterOptions = new List<TMP_Dropdown.OptionData>();
+        List<TMP_Dropdown.OptionData> matterTypeOptions = new List<TMP_Dropdown.OptionData>();
         foreach (var matterType in Enum.GetNames(typeof(MatterType)))
         {
-            matterOptions.Add(new TMP_Dropdown.OptionData(matterType));
+            matterTypeOptions.Add(new TMP_Dropdown.OptionData(matterType));
         }
-        _matterDropDown.ClearOptions();
-        _matterDropDown.AddOptions(matterOptions);
-    }
+        _matterTypeDropDown.ClearOptions();
+        _matterTypeDropDown.AddOptions(matterTypeOptions);
 
-    private (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_)
-    {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-
-        if (Physics.Raycast(ray, out hit, Mathf.Infinity))
+        List<TMP_Dropdown.OptionData> matterStateOptions = new List<TMP_Dropdown.OptionData>();
+        foreach (var matterState in Enum.GetNames(typeof(MatterState)))
         {
-            Vector2 textCoord = hit.textureCoord;
-            textCoord.x *= texture_.width;
-            textCoord.y *= texture_.height;
-
-            Vector2 tiling = quad_.GetComponent<Renderer>().material.mainTextureScale;
-
-            int pixelHitX = Mathf.FloorToInt(textCoord.x * tiling.x);
-            int pixelHitY = Mathf.FloorToInt(textCoord.y * tiling.y);
-
-            return (pixelHitX, pixelHitY);
+            matterStateOptions.Add(new TMP_Dropdown.OptionData(matterState));
         }
-
-        return (-1, -1);
+        _matterStateDropDown.ClearOptions();
+        _matterStateDropDown.AddOptions(matterStateOptions);
     }
 
     private void PaintCoordinates((int x, int y) pixelCoordinate_)
@@ -423,72 +413,6 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _grid.Apply();
     }
 
-    private bool ValidCoordinate((int x, int y) pixelCoordinate_)
-    {
-        return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _gridSize + 1 &&
-               pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1;
-    }
-
-    //TODO szebben
-    private bool Paintable((int x, int y) pixelCoordinate_)
-    {
-        if(pixelCoordinate_.x == _gridSize || pixelCoordinate_.y == 1)
-        {
-            return false;
-        }
-
-        bool paintable = true;
-
-        PaintHelper innerTopLeft = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y];
-        PaintHelper innerTopRight = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y];
-        PaintHelper innerBottomRight = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y - 1];
-        PaintHelper innerBottomLeft = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y - 1];
-
-        //clockwise
-        PaintHelper outerTopLeft = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y + 1];
-        PaintHelper outerTop1 = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y + 1];
-        PaintHelper outerTop2 = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y + 1];
-        PaintHelper outerTopRight = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y + 1];
-        PaintHelper outerRight1 = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y];
-        PaintHelper outerRight2 = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y - 1];
-        PaintHelper outerBottomRight = _paintHelper[pixelCoordinate_.x + 2, pixelCoordinate_.y - 2];
-        PaintHelper outerBottom1 = _paintHelper[pixelCoordinate_.x + 1, pixelCoordinate_.y - 2];
-        PaintHelper outerBottom2 = _paintHelper[pixelCoordinate_.x, pixelCoordinate_.y - 2];
-        PaintHelper outerBottomLeft = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y - 2];
-        PaintHelper outerLeft1 = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y - 1];
-        PaintHelper outerLeft2 = _paintHelper[pixelCoordinate_.x - 1, pixelCoordinate_.y];
-
-        bool skipTopAndRight = outerTop2 != PaintHelper.NONE || outerRight1 != PaintHelper.NONE;
-        bool skipRightAndBottom = outerRight2 != PaintHelper.NONE || outerBottom1 != PaintHelper.NONE;
-        bool skipBottomAndLeft = outerBottom2 != PaintHelper.NONE || outerLeft1 != PaintHelper.NONE;
-        bool skipLeftAndTop = outerLeft2 != PaintHelper.NONE || outerTop1 != PaintHelper.NONE;
-
-        if(_leftDown && !skipTopAndRight)
-        {
-            paintable &= outerTopRight == PaintHelper.NONE;
-        }
-        if(_leftDown && !skipRightAndBottom)
-        {
-            paintable &= outerBottomRight == PaintHelper.NONE;
-        }
-        if(_leftDown && !skipBottomAndLeft)
-        {
-            paintable &= outerBottomLeft == PaintHelper.NONE;
-        }
-        if(_leftDown && !skipLeftAndTop)
-        {
-            paintable &= outerTopLeft == PaintHelper.NONE;
-        }
-
-        paintable &=  (_leftDown &&
-                      innerTopLeft == PaintHelper.NONE && innerTopRight == PaintHelper.NONE &&
-                      innerBottomLeft == PaintHelper.NONE && innerBottomRight == PaintHelper.NONE) ||
-                      (_rightDown &&
-                      innerTopLeft == PaintHelper.TOPLEFT);
-
-        return paintable;
-    }
-
     private void SetParameters(int stepCount_, float gravity_, float viscosity_, float timeStep_, bool interpolate_, bool diffuse_, Color fluidColor_)
     {
         //TODO
@@ -501,7 +425,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _viscositySlider.interactable = stateValue_;
         _timeStepSlider.interactable = stateValue_;
         _interpolateToggle.interactable = stateValue_;
-        _diffuseToggle.interactable = stateValue_;
+        _matterStateDropDown.interactable = stateValue_;
     }
 
     #endregion

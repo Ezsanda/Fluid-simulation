@@ -31,7 +31,7 @@ public class PDESolver
 
     private MatrixSolver _solver;
 
-    private bool _diffuse;
+    private MatterState _matterState;
 
     #endregion
 
@@ -45,14 +45,14 @@ public class PDESolver
 
     #region Constructor
 
-    public PDESolver(int gridSize_, float timeStep_, bool diffuse_, float viscosity_, int stepCount_, float gravity_, WallType[,] wallTypes_)
+    public PDESolver(int gridSize_, float timeStep_, MatterState matterState_, float viscosity_, int stepCount_, float gravity_, WallType[,] wallTypes_)
     {
         _gridSize = gridSize_;
         _timeStep = timeStep_;
         _viscosity = viscosity_;
         _stepCount = stepCount_;
         _gravity = gravity_;
-        _diffuse = diffuse_;
+        _matterState = matterState_;
         _gridSpacing = 1.0F / _gridSize;
 
         _grid = new FluidGrid(_gridSize);
@@ -114,10 +114,13 @@ public class PDESolver
         _grid.PreviousDensity[x_,y_] += _timeStep * densityValue_;
     }
 
-    private void AddVelocity(float velocityValueX_, float velocityValueY_, int x_, int y_)
+    private void AddVelocity(float velocityValueX_, float velocityValueY_, (int x,int y)[] indexes_)
     {
-        _grid.PreviousVelocityX[x_, y_] += _timeStep * velocityValueX_;
-        _grid.PreviousVelocityY[x_, y_] += _timeStep * velocityValueY_;
+        for (int i = 0; i < indexes_.Length; ++i)
+        {
+            _grid.PreviousVelocityX[indexes_[i].x, indexes_[i].y] += _timeStep * velocityValueX_;
+            _grid.PreviousVelocityY[indexes_[i].x, indexes_[i].y] += _timeStep * velocityValueY_;
+        }
     }
 
     private void ApplyGravity()
@@ -203,7 +206,7 @@ public class PDESolver
     public void UpdateDensity(float densityValue_, int x_, int y_)
     {
         AddDensity(densityValue_,x_,y_);
-        if(_diffuse)
+        if(_matterState == MatterState.FLUID)
         {
             Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
             Swap(ref _grid.PreviousDensity, ref _grid.Density);
@@ -214,7 +217,7 @@ public class PDESolver
 
     public void UpdateDensity()
     {
-        if(_diffuse)
+        if(_matterState == MatterState.FLUID)
         {
             Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
             Swap(ref _grid.PreviousDensity, ref _grid.Density);
@@ -223,10 +226,10 @@ public class PDESolver
         Swap(ref _grid.PreviousDensity, ref _grid.Density);
     }
 
-    public void UpdateVelocity(float velocityValueX_, float velocityValueY_, int x_, int y_)
+    public void UpdateVelocity(float velocityValueX_, float velocityValueY_, (int,int)[] indexes_)
     {
         ApplyGravity();
-        AddVelocity(velocityValueX_,velocityValueY_,x_,y_);
+        AddVelocity(velocityValueX_,velocityValueY_,indexes_);
         Diffuse(BoundaryCondition.NO_SLIP_X,_grid.PreviousVelocityX,_grid.VelocityX);
         Diffuse(BoundaryCondition.NO_SLIP_Y,_grid.PreviousVelocityY,_grid.VelocityY);
         Project();

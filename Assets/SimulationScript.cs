@@ -13,6 +13,8 @@ using System;
 using UnityEngine.Assertions.Must;
 using UnityEngine.EventSystems;
 using UnityEngine.Animations;
+using System.Runtime.CompilerServices;
+using UnityEngine.PlayerLoop;
 
 public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 {
@@ -40,13 +42,17 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
     [SerializeField]
     private Button _restartButton;
 
+    [SerializeField]
+    private TMP_Dropdown _toolDropDown;
+
+    [SerializeField]
+    private Toggle _moveToggle;
+
     private int _gridSize;
 
     private bool _isSimulating = true;
 
     private bool _leftDown;
-
-    private bool _rightDown;
 
     private Texture2D _fluidGrid;
 
@@ -59,6 +65,15 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
     private Persistence _persistence;
 
     private Color _fluidColor;
+
+    private Tool _selectedTool;
+
+    private (int x, int y) _previousMousePosition;
+
+    private (int,int)[] _toolPositions;
+
+    //TODO
+    private float _threshold = 0.00002F;
 
     #endregion
 
@@ -75,35 +90,55 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
     {
         if (_isSimulating)
         {
-            if(_leftDown || _rightDown)
+            try
             {
-                (int x, int y) pixelHitCoordinates = CalculatePixelCoordinates();
-
-                if (pixelHitCoordinates == (-1, -1) || !ValidCoordinate(pixelHitCoordinates))
+                if(!_moveToggle.isOn && _leftDown)
                 {
-                    return;
-                }
+                    (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
 
-                if(_leftDown)
-                {
                     _solver.UpdateVelocity();
                     _solver.UpdateDensity(_densitySlider.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
                 }
+                else if(_moveToggle.isOn)
+                {
+                    (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
+                    UpdateToolPositions(pixelHitCoordinates);
+                    PaintToolPositions(pixelHitCoordinates);
+
+                    if (_leftDown)
+                    {
+                        (int x, int y) direction = CalculateDirection(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+                        _solver.UpdateVelocity(direction.x, direction.y, _toolPositions);
+                    }
+                    else
+                    {
+                        _solver.UpdateVelocity();
+                    }
+                    _solver.UpdateDensity();
+                }
                 else
                 {
-                    (int x, int y) direction = CalculateDirection(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
-                    _solver.UpdateVelocity(direction.x, direction.y, pixelHitCoordinates.x, pixelHitCoordinates.y);
+                    _solver.UpdateVelocity();
                     _solver.UpdateDensity();
                 }
 
+                UpdateColors();
             }
-            else
+            catch (NotHitException) {}
+            catch (Exception e) when (e is InValidCoordinateException || e is NotPaintableException)
+            {
+                //TODO szebben
+                if(_previousMousePosition != (0,0))
+                {
+                    ClearLastToolPositions();
+                }
+            }
+            finally
             {
                 _solver.UpdateVelocity();
                 _solver.UpdateDensity();
+                UpdateColors();
             }
-
-            UpdateColors();
         }
     }
 
@@ -113,10 +148,6 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         {
             _leftDown = true;
         }
-        else if (eventData.button == PointerEventData.InputButton.Right)
-        {
-            _rightDown = true;
-        }
     }
 
     public void OnPointerUp(PointerEventData eventData)
@@ -124,10 +155,6 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         if(eventData.button == PointerEventData.InputButton.Left)
         {
             _leftDown = false;
-        }
-        else if (eventData.button == PointerEventData.InputButton.Right)
-        {
-            _rightDown = false;
         }
     }
 
@@ -155,15 +182,35 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         _gridSize = _persistence.GridSize;
         _fluidGrid = _persistence.FluidGrid;
         _wallGrid = _persistence.WallGrid;
-        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.Diffuse, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
+        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterState, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
 
         _densitySlider.value = 1;
         _densityText.text = _densitySlider.value.ToString();
     }
 
+    private void OnToolChanged(int value)
+    {
+        _selectedTool = (Tool)value;
+
+        switch (_selectedTool)
+        {
+            case Tool.POINT:
+                _toolPositions = new (int, int)[1];
+                break;
+            case Tool.SQUARE:
+                _toolPositions = new (int, int)[4];
+                break;
+            case Tool.RECTANGLE:
+                _toolPositions = new (int, int)[6];
+                break;
+            default:
+                break;
+        }
+    }
+
     #endregion
 
-    #region Private methods
+    #region Private UI methods
 
     private void AddEventHandlers()
     {
@@ -171,6 +218,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         _editorButton.onClick.AddListener(() => OnEditorClick());
         _pauseButton.onClick.AddListener(() => OnPauseClick());
         _restartButton.onClick.AddListener(() => OnRestartClick());
+        _toolDropDown.onValueChanged.AddListener((int value) => OnToolChanged(value));
     }
 
     private void SetupUI()
@@ -182,17 +230,36 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         _fluidGrid = _persistence.FluidGrid;
         _wallGrid = _persistence.WallGrid;
         _fluidColor = _persistence.FluidColor;
-        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.Diffuse, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
+        _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterState, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
         _colorRange = new Gradient();
 
         _fluidQuad.GetComponent<Renderer>().material.mainTexture = _fluidGrid;
         _wallQuad.GetComponent<Renderer>().material.mainTexture = _wallGrid;
 
+        _toolPositions = new (int, int)[1];
+
+        SetupSlider();
+        SetupDropDown();
+    }
+
+    private void SetupSlider()
+    {
         _densitySlider.minValue = 1;
         _densitySlider.maxValue = 10;
         _densitySlider.value = 1;
 
         _densityText.text = _densitySlider.value.ToString();
+    }
+
+    private void SetupDropDown()
+    {
+        List<TMP_Dropdown.OptionData> matterOptions = new List<TMP_Dropdown.OptionData>();
+        foreach (var matterType in Enum.GetNames(typeof(Tool)))
+        {
+            matterOptions.Add(new TMP_Dropdown.OptionData(matterType));
+        }
+        _toolDropDown.ClearOptions();
+        _toolDropDown.AddOptions(matterOptions);
     }
 
     private void UpdateColors()
@@ -201,7 +268,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                if(_solver.Boundary.WallTypes[x, y] == WallType.NONE)
+                if(_solver.Boundary.WallTypes[x, y] == WallType.NONE && _fluidGrid.GetPixel(x,y) != Color.red)
                 {
                     Color pixelColor = CalculatePixelColor(x, y);
                     _fluidGrid.SetPixel(x, y, pixelColor);
@@ -211,31 +278,38 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         _fluidGrid.Apply();
     }
 
-    private (int, int) CalculatePixelCoordinates()
-    {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-
-        if (Physics.Raycast(ray, out hit, Mathf.Infinity))
-        {
-            Vector2 textCoord = hit.textureCoord;
-            textCoord.x *= _fluidGrid.width;
-            textCoord.y *= _fluidGrid.height;
-
-            Vector2 tiling = _fluidQuad.GetComponent<Renderer>().material.mainTextureScale;
-
-            int pixelHitX = Mathf.FloorToInt(textCoord.x * tiling.x);
-            int pixelHitY = Mathf.FloorToInt(textCoord.y * tiling.y);
-
-            return (pixelHitX, pixelHitY);
-        }
-
-        return (-1, -1);
-    }
-
+    //TODO think through thresholding and gradient
     private Color CalculatePixelColor(int x_, int y_)
     {
-        //TODO scale min and max via testing
+        Color fillColor = Color.black;
+
+        switch (_persistence.MatterType)
+        {
+            case MatterType.NONE:
+                fillColor = _fluidColor;
+                break;
+            case MatterType.WATER:
+                fillColor = Color.blue;
+                break;
+            case MatterType.HONEY:
+                fillColor = Color.yellow;
+                break;
+            case MatterType.HIDROGEN:
+                fillColor = Color.green;
+                break;
+            default:
+                break;
+        }
+
+        if (_persistence.MatterState == MatterState.FLUID)
+        {
+            if (_solver.Grid.Density[x_, y_] < _threshold)
+            {
+                return Color.white;
+            }
+            return fillColor;
+        }
+
         (float minDensity, float maxDensity) = (0, 0.0001F);
 
         float pixelIntensity = (_solver.Grid.Density[x_, y_] - minDensity) / (maxDensity - minDensity);
@@ -244,23 +318,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];
 
-        switch (_persistence.MatterType)
-        {
-            case MatterType.NONE:
-                colorKeys[0] = new GradientColorKey(_fluidColor, 1.0F);
-                break;
-            case MatterType.WATER:
-                colorKeys[0] = new GradientColorKey(Color.blue, 1.0F);
-                break;
-            case MatterType.HONEY:
-                break;
-            case MatterType.HIDROGEN:
-                colorKeys[0] = new GradientColorKey(Color.yellow, 1.0F);
-                break;
-            default:
-                break;
-        }
-
+        colorKeys[0] = new GradientColorKey(fillColor, 1.0F);
         colorKeys[1] = new GradientColorKey(Color.white, 0.0F);
 
         GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];
@@ -273,19 +331,175 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         return pixelColor;
     }
 
-    private bool ValidCoordinate((int x, int y) pixelCoordinate_)
-    {
-        return pixelCoordinate_.x != 0 && pixelCoordinate_.x != _gridSize + 1 &&
-               pixelCoordinate_.y != 0 && pixelCoordinate_.y != _gridSize + 1 &&
-               _solver.Boundary.WallTypes[pixelCoordinate_.x, pixelCoordinate_.y] == WallType.NONE;
-    }
+    #endregion
 
+    #region Private movement/drawing methods
+
+    //TODO scale vectors
     private (int,int) CalculateDirection(float horizontal_, float vertical_)
     {
-        int outX = horizontal_ < 0 ? -3 : horizontal_ > 0 ? 3 : 0;
-        int outY = vertical_ < 0 ? -3 : vertical_ > 0 ? 3 : 0;
+        int outX = horizontal_ < 0 ? -1 : horizontal_ > 0 ? 1 : 0;
+        int outY = vertical_ < 0 ? -1 : vertical_ > 0 ? 1 : 0;
 
         return (outX, outY);
+    }
+
+    private void PaintToolPositions((int x,int y) pixelCoordinate_)
+    {
+        try
+        {
+            switch (_selectedTool)
+            {
+                case Tool.POINT:
+                    DrawPoint(pixelCoordinate_);
+                    break;
+                case Tool.SQUARE:
+                    DrawSquare(pixelCoordinate_);
+                    break;
+                case Tool.RECTANGLE:
+                    DrawRectangle(pixelCoordinate_);
+                    break;
+                default:
+                    break;
+            }
+
+            _previousMousePosition = pixelCoordinate_;
+        }
+        catch (NotPaintableException e)
+        {
+            throw e;
+        }
+    }
+
+    private void DrawPoint((int x, int y) pixelCoordinate_)
+    {
+        Color pixelColor = CalculatePixelColor(_previousMousePosition.x, _previousMousePosition.y);
+        _fluidGrid.SetPixel(_previousMousePosition.x, _previousMousePosition.y, pixelColor);
+        _fluidGrid.SetPixel(pixelCoordinate_.x, pixelCoordinate_.y, Color.red);
+        _fluidGrid.Apply();
+    }
+
+    private void DrawSquare((int x, int y) pixelCoordinate_)
+    {
+        if(pixelCoordinate_.x == _gridSize || pixelCoordinate_.y == 1)
+        {
+            throw new NotPaintableException();
+        }
+
+        for (int x = 0; x < 2; ++x)
+        {
+            for (int y = 0; y > -2; --y)
+            {
+                Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
+                _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+                _fluidGrid.SetPixel(pixelCoordinate_.x + x, pixelCoordinate_.y + y, Color.red);
+            }
+        }
+        _fluidGrid.Apply();
+    }
+
+    private void DrawRectangle((int x, int y) pixelCoordinate_)
+    {
+        if (pixelCoordinate_.x == _gridSize || pixelCoordinate_.x == _gridSize - 1 || pixelCoordinate_.y == 1)
+        {
+            throw new NotPaintableException();
+        }
+
+        for (int x = 0; x < 3; ++x)
+        {
+            for (int y = 0; y > -2; --y)
+            {
+                Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
+                _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+                _fluidGrid.SetPixel(pixelCoordinate_.x + x, pixelCoordinate_.y + y, Color.red);
+            }
+        }
+        _fluidGrid.Apply();
+    }
+
+    private void ClearLastToolPositions()
+    {
+        switch (_selectedTool)
+        {
+            case Tool.POINT:
+                ClearPoint();
+                break;
+            case Tool.SQUARE:
+                ClearSquare();
+                break;
+            case Tool.RECTANGLE:
+                ClearRectangle();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void ClearPoint()
+    {
+        Color pixelColor = CalculatePixelColor(_previousMousePosition.x, _previousMousePosition.y);
+        _fluidGrid.SetPixel(_previousMousePosition.x, _previousMousePosition.y, pixelColor);
+        _fluidGrid.Apply();
+    }
+
+    private void ClearSquare()
+    {
+        for (int x = 0; x < 2; ++x)
+        {
+            for (int y = 0; y > -2; --y)
+            {
+                Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
+                _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+            }
+        }
+        _fluidGrid.Apply();
+    }
+
+    private void ClearRectangle()
+    {
+        for (int x = 0; x < 3; ++x)
+        {
+            for (int y = 0; y > -2; --y)
+            {
+                Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
+                _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+            }
+        }
+        _fluidGrid.Apply();
+    }
+
+    private void UpdateToolPositions((int x, int y) pixelCoordinates_)
+    {
+        int xLength = 0;
+        int yLength = 0;
+
+        switch (_selectedTool)
+        {
+            case Tool.POINT:
+                xLength = 1;
+                yLength = 1;
+                break;
+            case Tool.SQUARE:
+                xLength = 2;
+                yLength = 2;
+                break;
+            case Tool.RECTANGLE:
+                xLength = 3;
+                yLength = 2;
+                break;
+            default:
+                break;
+        }
+
+        int i = 0;
+        for (int x = 0; x < xLength; ++x)
+        {
+            for (int y = 0; y > -yLength; --y)
+            {
+                _toolPositions[i] = (pixelCoordinates_.x + x, pixelCoordinates_.y + y);
+                ++i;
+            }
+        }
     }
 
     #endregion
