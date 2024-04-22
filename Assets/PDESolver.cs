@@ -131,8 +131,7 @@ public class PDESolver
             {
                 if (_boundary.WallTypes[x, y] == WallType.NONE)
                 {
-                    int direction = _gravity > 0 ? -1 : 1;
-                    _grid.PreviousVelocityY[x, y] += direction * _timeStep * _gravity * _grid.Density[x, y];
+                    _grid.PreviousVelocityY[x, y] -= _timeStep * _gravity * _grid.Density[x, y];
                 }
             }
         }

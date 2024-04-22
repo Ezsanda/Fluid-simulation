@@ -33,13 +33,29 @@ public class Persistence
 
     private WallType[,] _wallTypes;
 
+    private PaintHelper[,] _paintHelper;
+
     private Color _fluidColor;
 
-	#endregion
+    private bool _firstStart;
 
-	#region Properties
+    #endregion
 
-	public int GridSize { get { return _gridSize; } }
+    #region Properties
+
+    public static Persistence Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = new Persistence();
+            }
+            return _instance;
+        }
+    }
+
+    public int GridSize { get { return _gridSize; } }
 
     public bool Interpolate { get { return _interpolate; } }
 
@@ -61,13 +77,25 @@ public class Persistence
 
     public WallType[,] WallTypes { get { return _wallTypes; } }
 
+    public PaintHelper[,] PaintHelper { get { return _paintHelper; } }
+
     public Color FluidColor { get { return _fluidColor; } }
+
+    public bool FirstStart { get { return _firstStart; } }
+
+    #endregion
+
+    #region Constructor
+
+    private Persistence()
+    {
+        _firstStart = true;
+    }
 
     #endregion
 
     #region Private methods
 
-    //TODO szebben
     private int CalculateWallType(Texture2D grid_, int x_, int y_)
     {
         Color center = grid_.GetPixel(x_, y_);
@@ -120,17 +148,10 @@ public class Persistence
 
     #region Public methods
 
-    public static Persistence GetInstance()
-    {
-        if(_instance == null)
-        {
-            _instance = new Persistence();
-        }
-        return _instance;
-    }
-
-	public void SaveSettings(int gridSize_, Texture2D grid_, Color fluidColor_, bool interpolate_, MatterState matterState_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_)
+	public void SaveSettings(int gridSize_, Texture2D grid_, Color fluidColor_, bool interpolate_, MatterState matterState_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_, PaintHelper[,] paintHelper_)
 	{
+        _firstStart = false;
+
 		StreamWriter sr = new StreamWriter("settings.txt", false);
         sr.WriteLine(gridSize_);
         sr.WriteLine(fluidColor_.r);
@@ -153,6 +174,16 @@ public class Persistence
 			}
 			sr.WriteLine();
 		}
+
+        for (int x = gridSize_; x > 0; --x)
+        {
+            for (int y = 1; y < gridSize_ + 1; ++y)
+            {
+                sr.Write((int)paintHelper_[y, x]);
+            }
+            sr.WriteLine();
+        }
+
 		sr.Close();
     }
 
@@ -173,6 +204,7 @@ public class Persistence
         _wallGrid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
         _wallGrid.filterMode = FilterMode.Point;
         _wallTypes = new WallType[_gridSize + 2, _gridSize + 2];
+        _paintHelper = new PaintHelper[_gridSize + 2, _gridSize + 2];
 
         Color wallColor = new Color(0, 0, 0, 255);
         Color transparentColor = new Color(255, 255, 255, 0);
@@ -208,7 +240,17 @@ public class Persistence
         _fluidGrid.Apply();
         _wallGrid.Apply();
 
-		sr.Close();
+        for (int x = _gridSize; x > 0; --x)
+        {
+            string line = sr.ReadLine();
+            for (int y = 1; y < _gridSize + 1; ++y)
+            {
+                PaintHelper currentPixel = (PaintHelper)int.Parse(line[y - 1].ToString());
+                _paintHelper[y, x] = currentPixel;
+            }
+        }
+
+        sr.Close();
     }
 
 	#endregion

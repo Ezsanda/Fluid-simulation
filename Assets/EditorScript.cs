@@ -101,6 +101,10 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private bool _colorPickerOpen;
 
+    private MatterTypeInfo _matterTypeInfo;
+
+    private RayCaster _rayCaster;
+
     #endregion
 
     #region Game methods
@@ -117,13 +121,14 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         {
             if(!_colorPickerOpen && (_leftDown || _rightDown))
             {
-                (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_editorQuad, _grid, _paintHelper, _leftDown);
+                (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_editorQuad, _grid, _paintHelper, _leftDown);
                 PaintCoordinates(pixelHitCoordinates);
             }
             else if(_colorPickerOpen && _leftDown)
             {
-                (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_colorPickerQuad, _colorPickerTexture);
+                (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_colorPickerQuad, _colorPickerTexture);
                 _colorPickerButton.image.color = _colorPickerTexture.GetPixel(pixelHitCoordinates.x, pixelHitCoordinates.y);
+                UpdateDropDown(MatterProperty.COLOR);
             }
         }
         catch (Exception e) when (e is NotHitException || e is InValidCoordinateException || e is NotPaintableException) {}
@@ -159,8 +164,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void OnStartClick()
     {
-        _persistence = Persistence.GetInstance();
-        _persistence.SaveSettings(_gridSize, _grid, _colorPickerButton.image.color, _interpolateToggle.isOn, _matterState, _matterType, _timeStep, _viscosity, _gravity, _stepCount);
+        _persistence.SaveSettings(_gridSize, _grid, _colorPickerButton.image.color, _interpolateToggle.isOn, _matterState, _matterType, _timeStep, _viscosity, _gravity, _stepCount, _paintHelper);
 
         SceneManager.LoadScene(2);
     }
@@ -172,7 +176,12 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void OnResetClick()
     {
-        SetupUI();
+        SetupSliders(40, 0.2f, 0.0002f, 15, 40);
+        SetupGrid();
+        SetupColorPicker(Color.blue);
+        SetupPainter();
+        SetupDropDowns(MatterType.NONE, MatterState.FLUID);
+        _interpolateToggle.isOn = true;
     }
 
     private void OnColorPickerClick()
@@ -180,37 +189,25 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _colorPickerOpen = !_colorPickerOpen;
         _startButton.interactable = !_colorPickerOpen;
 
-        _colorPickerQuad.GetComponent<Renderer>().sortingOrder = _colorPickerOpen ? 1 : 0;
-        _editorQuad.GetComponent<Renderer>().sortingOrder = _colorPickerOpen ? 0 : 1;
+        float colorPickerZ = _colorPickerOpen ? -1 : 1;
+        float editorZ = _colorPickerOpen ? 1 : -1;
+
+        _colorPickerQuad.transform.position += new Vector3(0, 0, colorPickerZ);
+        _editorQuad.transform.position += new Vector3(0, 0, editorZ);
     }
 
     private void OnMatterStateChanged(int value)
     {
         _matterState = (MatterState)value;
+
+        UpdateDropDown(MatterProperty.MATTERSTATE);
     }
 
-    //TODO
     private void OnMatterTypeChanged(int value)
     {
-        switch ((MatterType)value)
+        if((MatterType)value != MatterType.NONE)
         {
-            case MatterType.NONE:
-                ChangeInteractableState(true);
-                break;
-            case MatterType.WATER:
-                //SetParameters();
-                ChangeInteractableState(false);
-                break;
-            case MatterType.HONEY:
-                //SetParameters();
-                ChangeInteractableState(false);
-                break;
-            case MatterType.HIDROGEN:
-                //SetParameters();
-                ChangeInteractableState(false);
-                break;
-            default:
-                break;
+            SetParameters((MatterType)value);
         }
         _matterType = (MatterType)value;
     }
@@ -249,24 +246,32 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     {
         _timeStepText.text = value.ToString();
         _timeStep = value;
+
+        UpdateDropDown(MatterProperty.TIMESTEP);
     }
 
     private void OnViscosityChanged(float value)
     {
         _viscosityText.text = value.ToString();
         _viscosity = value;
+
+        UpdateDropDown(MatterProperty.VISCOSITY);
     }
 
     private void OnGravityChanged(float value)
     {
         _gravityText.text = value.ToString();
         _gravity = value;
+
+        UpdateDropDown(MatterProperty.GRAVITY);
     }
 
     private void OnStepCountChanged(float value)
     {
         _stepCountText.text = value.ToString();
         _stepCount = (int)value;
+
+        UpdateDropDown(MatterProperty.STEPCOUNT);
     }
 
     #endregion
@@ -290,47 +295,64 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void SetupUI()
     {
-        SetupSliders();
-        SetupTextures();
-        SetupPainter();
-        SetupDropDowns();
+        _persistence = Persistence.Instance;
+        _matterTypeInfo = MatterTypeInfo.Instance;
+        _rayCaster = RayCaster.Instance;
+
+        if(_persistence.FirstStart)
+        {
+            //TODO test
+            SetupSliders(40,0.2f,0.0002f,15,40);
+            SetupGrid();
+            SetupColorPicker(Color.blue);
+            SetupPainter();
+            SetupDropDowns(MatterType.NONE,MatterState.FLUID);
+        }
+        else
+        {
+            SetupSliders(_persistence.GridSize, _persistence.TimeStep, _persistence.Viscosity, _persistence.Gravity, _persistence.StepCount);
+            SetupGrid(_persistence.WallGrid);
+            SetupColorPicker(_persistence.FluidColor);
+            SetupDropDowns(_persistence.MatterType,_persistence.MatterState);
+            _interpolateToggle.isOn = _persistence.Interpolate;
+            _paintHelper = _persistence.PaintHelper;
+        }
     }
 
-    //TODO test folyamatosan
-    private void SetupSliders()
+    private void SetupSliders(int resolution_, float timeStep_, float viscosity_, float gravity_, int stepCount_)
     {
-        _resolutionSlider.minValue = 5;
-        _resolutionSlider.maxValue = 100;
-        _gridSize = 40;
+        _resolutionSlider.minValue = 20;
+        _resolutionSlider.maxValue = 60;
+        _gridSize = resolution_;
         _resolutionText.text = _gridSize.ToString();
         _resolutionSlider.value = _gridSize;
 
         _timeStepSlider.minValue = 0;
         _timeStepSlider.maxValue = 0.5f;
-        _timeStep = 0.2f;
+        _timeStep = timeStep_;
         _timeStepText.text = _timeStep.ToString();
         _timeStepSlider.value = _timeStep;
 
         _viscositySlider.minValue = 0.0001f;
         _viscositySlider.maxValue = 0.01f;
-        _viscosity = 0.0002f;
+        _viscosity = viscosity_;
         _viscosityText.text = _viscosity.ToString();
         _viscositySlider.value = _viscosity;
 
-        _gravitySlider.minValue = 10;
+        _gravitySlider.minValue = -20;
         _gravitySlider.maxValue = 20;
-        _gravity = 15;
+        _gravity = gravity_;
         _gravityText.text = _gravity.ToString();
         _gravitySlider.value = _gravity;
 
         _stepCountSlider.minValue = 10;
         _stepCountSlider.maxValue = 100;
-        _stepCount = 40;
+        _stepCount = stepCount_;
         _stepCountText.text = _stepCount.ToString();
         _stepCountSlider.value = _stepCount;
     }
 
-    private void SetupTextures()
+    private void SetupGrid()
     {
         _grid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
         _grid.filterMode = FilterMode.Point;
@@ -345,7 +367,27 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         }
         _grid.Apply();
         _editorQuad.GetComponent<Renderer>().material.mainTexture = _grid;
+    }
 
+    private void SetupGrid(Texture2D wallGrid_)
+    {
+        _grid = new Texture2D(_gridSize + 2, _gridSize + 2, TextureFormat.ARGB32, false);
+        _grid.filterMode = FilterMode.Point;
+
+        for (int x = 0; x < _gridSize + 2; ++x)
+        {
+            for (int y = 0; y < _gridSize + 2; ++y)
+            {
+                Color pixelColor = wallGrid_.GetPixel(x,y).a == 0 ? Color.white : Color.black;
+                _grid.SetPixel(x, y, pixelColor);
+            }
+        }
+        _grid.Apply();
+        _editorQuad.GetComponent<Renderer>().material.mainTexture = _grid;
+    }
+
+    private void SetupColorPicker(Color colorPickerColor_)
+    {
         _colorPickerTexture = new Texture2D(256, 256, TextureFormat.ARGB32, false);
 
         for (int x = 0; x < 255; ++x)
@@ -360,7 +402,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _colorPickerTexture.Apply();
         _colorPickerQuad.GetComponent<Renderer>().material.mainTexture = _colorPickerTexture;
 
-        _colorPickerButton.image.color = Color.blue;
+        _colorPickerButton.image.color = colorPickerColor_;
         _colorPickerOpen = false;
     }
 
@@ -377,7 +419,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         }
     }
 
-    private void SetupDropDowns()
+    private void SetupDropDowns(MatterType matterType_, MatterState matterState_)
     {
         List<TMP_Dropdown.OptionData> matterTypeOptions = new List<TMP_Dropdown.OptionData>();
         foreach (var matterType in Enum.GetNames(typeof(MatterType)))
@@ -386,6 +428,8 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         }
         _matterTypeDropDown.ClearOptions();
         _matterTypeDropDown.AddOptions(matterTypeOptions);
+        _matterType = matterType_;
+        _matterTypeDropDown.value = (int)_matterType;
 
         List<TMP_Dropdown.OptionData> matterStateOptions = new List<TMP_Dropdown.OptionData>();
         foreach (var matterState in Enum.GetNames(typeof(MatterState)))
@@ -394,6 +438,8 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         }
         _matterStateDropDown.ClearOptions();
         _matterStateDropDown.AddOptions(matterStateOptions);
+        _matterState = matterState_;
+        _matterStateDropDown.value = (int)_matterState;
     }
 
     private void PaintCoordinates((int x, int y) pixelCoordinate_)
@@ -413,19 +459,50 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _grid.Apply();
     }
 
-    private void SetParameters(int stepCount_, float gravity_, float viscosity_, float timeStep_, bool interpolate_, bool diffuse_, Color fluidColor_)
+    private void SetParameters(MatterType matterType_)
     {
-        //TODO
+        _timeStepSlider.value = _matterTypeInfo.TimeStep(matterType_);
+        _viscositySlider.value = _matterTypeInfo.Viscosity(matterType_);
+        _gravitySlider.value = _matterTypeInfo.Gravity(matterType_);
+        _stepCountSlider.value = _matterTypeInfo.StepCount(matterType_);
+        _colorPickerButton.image.color = _matterTypeInfo.Color(matterType_);
+        _matterStateDropDown.value = (int)_matterTypeInfo.MatterState(matterType_);
     }
 
-    private void ChangeInteractableState(bool stateValue_)
+    private void UpdateDropDown(MatterProperty property_)
     {
-        _stepCountSlider.interactable = stateValue_;
-        _gravitySlider.interactable = stateValue_;
-        _viscositySlider.interactable = stateValue_;
-        _timeStepSlider.interactable = stateValue_;
-        _interpolateToggle.interactable = stateValue_;
-        _matterStateDropDown.interactable = stateValue_;
+        foreach (MatterType type in Enum.GetValues(typeof(MatterType)))
+        {
+            if (type != MatterType.NONE && CheckParameters(property_, type))
+            {
+                _matterTypeDropDown.value = (int)type;
+                _matterType = type;
+                return;
+            }
+        }
+        _matterTypeDropDown.value = (int)MatterType.NONE;
+        _matterType = MatterType.NONE;
+    }
+
+    private bool CheckParameters(MatterProperty property_, MatterType matterType_)
+    {
+        switch (property_)
+        {
+            case MatterProperty.TIMESTEP:
+                return _timeStep == _matterTypeInfo.TimeStep(matterType_);
+            case MatterProperty.VISCOSITY:
+                return _viscosity == _matterTypeInfo.Viscosity(matterType_);
+            case MatterProperty.GRAVITY:
+                return _gravity == _matterTypeInfo.Gravity(matterType_);
+            case MatterProperty.STEPCOUNT:
+                return _stepCount == _matterTypeInfo.StepCount(matterType_);
+            case MatterProperty.COLOR:
+                return _colorPickerButton.image.color == _matterTypeInfo.Color(matterType_);
+            case MatterProperty.MATTERSTATE:
+                return _matterState == _matterTypeInfo.MatterState(matterType_);
+            default:
+                return false;
+        }
     }
 
     #endregion

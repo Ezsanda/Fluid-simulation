@@ -3,20 +3,42 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using UnityEngine.Rendering.VirtualTexturing;
+using TMPro;
 
-public static class RayCaster
+public class RayCaster
 {
-    //TODO átgondolni a statikságot
+
+    #region Fields
+
+    private static RayCaster _instance;
+
+    #endregion
+
+    #region Properties
+
+    public static RayCaster Instance
+    {
+        get
+        {
+            if(_instance == null)
+            {
+                _instance = new RayCaster();
+            }
+            return _instance;
+        }
+    }
+
+    #endregion
 
     #region Private methods
 
-    private static bool ValidCoordinate((int x, int y) pixelCoordinate_, int gridSize_)
+    private bool ValidCoordinate((int x, int y) pixelCoordinate_, int gridSize_)
     {
         return pixelCoordinate_.x != 0 && pixelCoordinate_.x != gridSize_ + 1 &&
                pixelCoordinate_.y != 0 && pixelCoordinate_.y != gridSize_ + 1;
     }
 
-    private static bool ValidCoordinate((int x, int y) pixelCoordinate_, int gridSize_, WallType[,] wallTypes_)
+    private bool ValidCoordinate((int x, int y) pixelCoordinate_, int gridSize_, WallType[,] wallTypes_)
     {
         return pixelCoordinate_.x != 0 && pixelCoordinate_.x != gridSize_ + 1 &&
                pixelCoordinate_.y != 0 && pixelCoordinate_.y != gridSize_ + 1 &&
@@ -24,9 +46,9 @@ public static class RayCaster
     }
 
     //TODO szebben
-    private static bool Paintable((int x, int y) pixelCoordinate_, int gridSize_, PaintHelper[,] paintHelper_, bool leftDown_)
+    private bool Paintable((int x, int y) pixelCoordinate_, int gridSize_, PaintHelper[,] paintHelper_, bool leftDown_)
     {
-        if (pixelCoordinate_.x == gridSize_ || pixelCoordinate_.y == 1)
+        if (pixelCoordinate_.x == gridSize_ - 2 || pixelCoordinate_.y == 1)
         {
             return false;
         }
@@ -87,12 +109,12 @@ public static class RayCaster
 
     #region Public methods
 
-    public static (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_)
+    public (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_)
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        if (Physics.Raycast(ray, out hit, Mathf.Infinity))
+        if (Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 3))
         {
             Vector2 textCoord = hit.textureCoord;
             textCoord.x *= texture_.width;
@@ -109,7 +131,7 @@ public static class RayCaster
         throw new NotHitException();
     }
 
-    public static (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_, WallType[,] wallTypes_)
+    public (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_, WallType[,] wallTypes_)
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
@@ -136,7 +158,7 @@ public static class RayCaster
         throw new NotHitException();
     }
 
-    public static (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_, PaintHelper[,] paintHelper_, bool leftDown_)
+    public (int, int) CalculatePixelCoordinates(GameObject quad_, Texture2D texture_, PaintHelper[,] paintHelper_, bool leftDown_)
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;

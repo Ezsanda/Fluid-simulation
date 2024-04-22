@@ -1,0 +1,26 @@
+{
+  "Water": {
+    "timestep": 0.2,
+    "viscosity": 0.0002,
+    "gravity": 15,
+    "stepcount": 40,
+    "color": "0,0,255",
+    "matterstate": 0
+  },
+  "Honey": {
+    "timestep": 0.02,
+    "viscosity": 0.000002,
+    "gravity": 20,
+    "stepcount": 40,
+    "color": "255,165,0",
+    "matterstate": 0
+  },
+  "Hidrogen": {
+    "timestep": 0.1,
+    "viscosity": 0.0002,
+    "gravity": -1,
+    "stepcount": 40,
+    "color": "0,255,0",
+    "matterstate": 1
+  }
+}

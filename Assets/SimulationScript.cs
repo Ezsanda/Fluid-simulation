@@ -73,7 +73,9 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
     private (int,int)[] _toolPositions;
 
     //TODO
-    private float _threshold = 0.00002F;
+    //private float _threshold = 0.00002F;
+
+    private RayCaster _rayCaster;
 
     #endregion
 
@@ -94,14 +96,14 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
             {
                 if(!_moveToggle.isOn && _leftDown)
                 {
-                    (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
+                    (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
 
                     _solver.UpdateVelocity();
                     _solver.UpdateDensity(_densitySlider.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
                 }
                 else if(_moveToggle.isOn)
                 {
-                    (int x, int y) pixelHitCoordinates = RayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
+                    (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
                     UpdateToolPositions(pixelHitCoordinates);
                     PaintToolPositions(pixelHitCoordinates);
 
@@ -183,9 +185,6 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         _fluidGrid = _persistence.FluidGrid;
         _wallGrid = _persistence.WallGrid;
         _solver = new PDESolver(_gridSize, _persistence.TimeStep, _persistence.MatterState, _persistence.Viscosity, _persistence.StepCount, _persistence.Gravity, _persistence.WallTypes);
-
-        _densitySlider.value = 1;
-        _densityText.text = _densitySlider.value.ToString();
     }
 
     private void OnToolChanged(int value)
@@ -223,7 +222,8 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
     private void SetupUI()
     {
-        _persistence = Persistence.GetInstance();
+        _rayCaster = RayCaster.Instance;
+        _persistence = Persistence.Instance;
         _persistence.LoadSettings();
 
         _gridSize = _persistence.GridSize;
@@ -244,8 +244,8 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
     private void SetupSlider()
     {
-        _densitySlider.minValue = 1;
-        _densitySlider.maxValue = 10;
+        _densitySlider.minValue = 0.1f;
+        _densitySlider.maxValue = 2;
         _densitySlider.value = 1;
 
         _densityText.text = _densitySlider.value.ToString();
@@ -301,14 +301,15 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
                 break;
         }
 
-        if (_persistence.MatterState == MatterState.FLUID)
+        //TODO
+        /*if (_persistence.MatterState == MatterState.FLUID)
         {
             if (_solver.Grid.Density[x_, y_] < _threshold)
             {
                 return Color.white;
             }
             return fillColor;
-        }
+        }*/
 
         (float minDensity, float maxDensity) = (0, 0.0001F);
 
@@ -390,8 +391,11 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         {
             for (int y = 0; y > -2; --y)
             {
-                Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
-                _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+                if(_previousMousePosition != (0,0))
+                {
+                    Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
+                    _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+                }
                 _fluidGrid.SetPixel(pixelCoordinate_.x + x, pixelCoordinate_.y + y, Color.red);
             }
         }
@@ -409,8 +413,11 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         {
             for (int y = 0; y > -2; --y)
             {
-                Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
-                _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+                if (_previousMousePosition != (0, 0))
+                {
+                    Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
+                    _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
+                }
                 _fluidGrid.SetPixel(pixelCoordinate_.x + x, pixelCoordinate_.y + y, Color.red);
             }
         }
