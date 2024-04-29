@@ -11,7 +11,7 @@ public enum BoundaryCondition
 
 public enum MatterType
 {
-    NONE,
+    CUSTOM,
     WATER,
     HONEY,
     HIDROGEN
@@ -52,14 +52,4 @@ public enum MatterState
 {
     FLUID,
     GAS
-}
-
-public enum MatterProperty
-{
-    TIMESTEP,
-    VISCOSITY,
-    GRAVITY,
-    STEPCOUNT,
-    COLOR,
-    MATTERSTATE
 }

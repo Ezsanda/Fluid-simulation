@@ -285,7 +285,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
         switch (_persistence.MatterType)
         {
-            case MatterType.NONE:
+            case MatterType.CUSTOM:
                 fillColor = _fluidColor;
                 break;
             case MatterType.WATER:
