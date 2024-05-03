@@ -7,27 +7,27 @@ using UnityEngine;
 public class Persistence
 {
 
-	#region Fields
+    #region Fields
 
-	private static Persistence _instance;
+    private static Persistence _instance;
 
-	private int _gridSize;
+    private int _gridSize;
 
-	private bool _interpolate;
+    private bool _interpolate;
 
     private MatterState _matterState;
 
-	private MatterType _matterType;
+    private MatterType _matterType;
 
-	private float _timeStep;
+    private float _timeStep;
 
-	private float _viscosity;
+    private float _viscosity;
 
-	private float _gravity;
+    private float _gravity;
 
     private int _stepCount;
 
-	private Texture2D _fluidGrid;
+    private Texture2D _fluidGrid;
 
     private Texture2D _wallGrid;
 
@@ -99,7 +99,7 @@ public class Persistence
     private int CalculateWallType(Texture2D grid_, int x_, int y_)
     {
         Color center = grid_.GetPixel(x_, y_);
-        if(center == Color.white)
+        if (center == Color.white)
         {
             return (int)WallType.NONE;
         }
@@ -109,27 +109,27 @@ public class Persistence
         Color bottom = grid_.GetPixel(x_, y_ - 1);
         Color left = grid_.GetPixel(x_ - 1, y_);
 
-        if(top == Color.white && left == Color.white)
+        if (top == Color.white && left == Color.white)
         {
             return (int)WallType.TOPLEFT;
         }
-        else if(left == Color.black && right == Color.black && top == Color.white)
+        else if (left == Color.black && right == Color.black && top == Color.white)
         {
             return (int)WallType.TOP;
         }
-        else if(top == Color.white && right == Color.white)
+        else if (top == Color.white && right == Color.white)
         {
             return (int)WallType.TOPRIGHT;
         }
-        else if(top == Color.black && bottom == Color.black && right == Color.white)
+        else if (top == Color.black && bottom == Color.black && right == Color.white)
         {
             return (int)WallType.RIGHT;
         }
-        else if(bottom == Color.white && right == Color.white)
+        else if (bottom == Color.white && right == Color.white)
         {
             return (int)WallType.BOTTOMRIGHT;
         }
-        else if(left == Color.black && right == Color.black && bottom == Color.white)
+        else if (left == Color.black && right == Color.black && bottom == Color.white)
         {
             return (int)WallType.BOTTOM;
         }
@@ -137,7 +137,7 @@ public class Persistence
         {
             return (int)WallType.BOTTOMLEFT;
         }
-        else if(top == Color.black && bottom == Color.black && left == Color.white)
+        else if (top == Color.black && bottom == Color.black && left == Color.white)
         {
             return (int)WallType.LEFT;
         }
@@ -148,11 +148,11 @@ public class Persistence
 
     #region Public methods
 
-	public void SaveSettings(int gridSize_, Texture2D grid_, Color fluidColor_, bool interpolate_, MatterState matterState_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_, PaintHelper[,] paintHelper_)
-	{
+    public void SaveSettings(int gridSize_, Texture2D grid_, Color fluidColor_, bool interpolate_, MatterState matterState_, MatterType matterType_, float timeStep_, float viscosity_, float gravity_, float stepCount_, PaintHelper[,] paintHelper_)
+    {
         _firstStart = false;
 
-		StreamWriter sr = new StreamWriter("settings.txt", false);
+        StreamWriter sr = new StreamWriter("settings.txt", false);
         sr.WriteLine(gridSize_);
         sr.WriteLine(fluidColor_.r);
         sr.WriteLine(fluidColor_.g);
@@ -165,15 +165,15 @@ public class Persistence
         sr.WriteLine(gravity_);
         sr.WriteLine(stepCount_);
 
-		for (int x = gridSize_; x > 0; --x)
-		{
-			for (int y = 1; y < gridSize_ + 1; ++y)
-			{
+        for (int x = gridSize_; x > 0; --x)
+        {
+            for (int y = 1; y < gridSize_ + 1; ++y)
+            {
                 int currentPixel = CalculateWallType(grid_, y, x);
                 sr.Write(currentPixel);
-			}
-			sr.WriteLine();
-		}
+            }
+            sr.WriteLine();
+        }
 
         for (int x = gridSize_; x > 0; --x)
         {
@@ -184,13 +184,13 @@ public class Persistence
             sr.WriteLine();
         }
 
-		sr.Close();
+        sr.Close();
     }
 
-	public void LoadSettings()
+    public void LoadSettings()
     {
         StreamReader sr = new StreamReader("settings.txt");
-		_gridSize = int.Parse(sr.ReadLine());
+        _gridSize = int.Parse(sr.ReadLine());
         _fluidColor = new Color(float.Parse(sr.ReadLine()), float.Parse(sr.ReadLine()), float.Parse(sr.ReadLine()));
         _interpolate = bool.Parse(sr.ReadLine());
         _matterState = (MatterState)int.Parse(sr.ReadLine());
@@ -210,15 +210,15 @@ public class Persistence
         Color transparentColor = new Color(255, 255, 255, 0);
 
         for (int x = _gridSize; x > 0; --x)
-		{
+        {
             _wallGrid.SetPixel(x, 0, wallColor);
             _wallGrid.SetPixel(x, _gridSize + 1, wallColor);
             _wallGrid.SetPixel(0, x, wallColor);
             _wallGrid.SetPixel(_gridSize + 1, x, wallColor);
 
-			string line = sr.ReadLine();
-			for (int y = 1; y < _gridSize + 1; ++y)
-			{
+            string line = sr.ReadLine();
+            for (int y = 1; y < _gridSize + 1; ++y)
+            {
                 WallType currentPixel = (WallType)int.Parse(line[y - 1].ToString());
                 if (currentPixel != WallType.NONE)
                 {
@@ -231,7 +231,7 @@ public class Persistence
                 _wallTypes[y, x] = currentPixel;
                 _fluidGrid.SetPixel(y, x, Color.white);
             }
-		}
+        }
         _wallGrid.SetPixel(0, 0, wallColor);
         _wallGrid.SetPixel(0, _gridSize + 1, wallColor);
         _wallGrid.SetPixel(_gridSize + 1, 0, wallColor);
@@ -253,6 +253,6 @@ public class Persistence
         sr.Close();
     }
 
-	#endregion
+    #endregion
 
 }

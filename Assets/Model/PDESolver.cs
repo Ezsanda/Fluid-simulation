@@ -11,6 +11,7 @@ using UnityEngine.UIElements;
 
 public class PDESolver
 {
+
     #region Fields
 
     private int _gridSize;
@@ -77,7 +78,7 @@ public class PDESolver
             {
                 if (_boundary.WallTypes[x, y] == WallType.NONE)
                 {
-                    _grid.VelocityDivergence[x, y] = _gridSpacing * 
+                    _grid.VelocityDivergence[x, y] = _gridSpacing *
                                                      (_grid.VelocityX[x + 1, y] - _grid.VelocityX[x - 1, y] +
                                                      _grid.VelocityY[x, y + 1] - _grid.VelocityY[x, y - 1])
                                                      / -2;
@@ -85,7 +86,7 @@ public class PDESolver
                 }
             }
         }
-        _boundary.SetBoundary(BoundaryCondition.NEUMANN,_grid.VelocityDivergence);
+        _boundary.SetBoundary(BoundaryCondition.NEUMANN, _grid.VelocityDivergence);
     }
 
     private void CalculatePressureGradientField()
@@ -101,8 +102,8 @@ public class PDESolver
                 }
             }
         }
-        _boundary.SetBoundary(BoundaryCondition.NO_SLIP_X,_grid.VelocityX);
-        _boundary.SetBoundary(BoundaryCondition.NO_SLIP_Y,_grid.VelocityY);
+        _boundary.SetBoundary(BoundaryCondition.NO_SLIP_X, _grid.VelocityX);
+        _boundary.SetBoundary(BoundaryCondition.NO_SLIP_Y, _grid.VelocityY);
     }
 
     #endregion
@@ -111,10 +112,10 @@ public class PDESolver
 
     private void AddDensity(float densityValue_, int x_, int y_)
     {
-        _grid.PreviousDensity[x_,y_] += _timeStep * densityValue_;
+        _grid.PreviousDensity[x_, y_] += _timeStep * densityValue_;
     }
 
-    private void AddVelocity(float velocityValueX_, float velocityValueY_, (int x,int y)[] indexes_)
+    private void AddVelocity(float velocityValueX_, float velocityValueY_, (int x, int y)[] indexes_)
     {
         for (int i = 0; i < indexes_.Length; ++i)
         {
@@ -204,19 +205,8 @@ public class PDESolver
 
     public void UpdateDensity(float densityValue_, int x_, int y_)
     {
-        AddDensity(densityValue_,x_,y_);
-        if(_matterState == MatterState.FLUID)
-        {
-            Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
-            Swap(ref _grid.PreviousDensity, ref _grid.Density);
-        }
-        Advect(BoundaryCondition.NEUMANN,_grid.VelocityX,_grid.VelocityY,_grid.PreviousDensity,_grid.Density);
-        Swap(ref _grid.PreviousDensity, ref _grid.Density);
-    }
-
-    public void UpdateDensity()
-    {
-        if(_matterState == MatterState.FLUID)
+        AddDensity(densityValue_, x_, y_);
+        if (_matterState == MatterState.FLUID)
         {
             Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
             Swap(ref _grid.PreviousDensity, ref _grid.Density);
@@ -225,17 +215,28 @@ public class PDESolver
         Swap(ref _grid.PreviousDensity, ref _grid.Density);
     }
 
-    public void UpdateVelocity(float velocityValueX_, float velocityValueY_, (int,int)[] indexes_)
+    public void UpdateDensity()
+    {
+        if (_matterState == MatterState.FLUID)
+        {
+            Diffuse(BoundaryCondition.NEUMANN, _grid.PreviousDensity, _grid.Density);
+            Swap(ref _grid.PreviousDensity, ref _grid.Density);
+        }
+        Advect(BoundaryCondition.NEUMANN, _grid.VelocityX, _grid.VelocityY, _grid.PreviousDensity, _grid.Density);
+        Swap(ref _grid.PreviousDensity, ref _grid.Density);
+    }
+
+    public void UpdateVelocity(float velocityValueX_, float velocityValueY_, (int, int)[] indexes_)
     {
         ApplyGravity();
-        AddVelocity(velocityValueX_,velocityValueY_,indexes_);
-        Diffuse(BoundaryCondition.NO_SLIP_X,_grid.PreviousVelocityX,_grid.VelocityX);
-        Diffuse(BoundaryCondition.NO_SLIP_Y,_grid.PreviousVelocityY,_grid.VelocityY);
+        AddVelocity(velocityValueX_, velocityValueY_, indexes_);
+        Diffuse(BoundaryCondition.NO_SLIP_X, _grid.PreviousVelocityX, _grid.VelocityX);
+        Diffuse(BoundaryCondition.NO_SLIP_Y, _grid.PreviousVelocityY, _grid.VelocityY);
         Project();
         Swap(ref _grid.PreviousVelocityX, ref _grid.VelocityX);
         Swap(ref _grid.PreviousVelocityY, ref _grid.VelocityY);
-        Advect(BoundaryCondition.NO_SLIP_X,_grid.PreviousVelocityX,_grid.PreviousVelocityY,_grid.PreviousVelocityX,_grid.VelocityX);
-        Advect(BoundaryCondition.NO_SLIP_Y,_grid.PreviousVelocityX,_grid.PreviousVelocityY,_grid.PreviousVelocityY,_grid.VelocityY);
+        Advect(BoundaryCondition.NO_SLIP_X, _grid.PreviousVelocityX, _grid.PreviousVelocityY, _grid.PreviousVelocityX, _grid.VelocityX);
+        Advect(BoundaryCondition.NO_SLIP_Y, _grid.PreviousVelocityX, _grid.PreviousVelocityY, _grid.PreviousVelocityY, _grid.VelocityY);
         Swap(ref _grid.PreviousVelocityX, ref _grid.VelocityX);
         Swap(ref _grid.PreviousVelocityY, ref _grid.VelocityY);
         Project();

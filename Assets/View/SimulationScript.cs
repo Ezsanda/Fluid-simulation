@@ -16,7 +16,7 @@ using UnityEngine.Animations;
 using System.Runtime.CompilerServices;
 using UnityEngine.PlayerLoop;
 
-public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
+public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
 
     #region Fields
@@ -70,7 +70,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
     private (int x, int y) _previousMousePosition;
 
-    private (int,int)[] _toolPositions;
+    private (int, int)[] _toolPositions;
 
     //TODO
     //private float _threshold = 0.00002F;
@@ -94,14 +94,14 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         {
             try
             {
-                if(!_moveToggle.isOn && _leftDown)
+                if (!_moveToggle.isOn && _leftDown)
                 {
                     (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
 
                     _solver.UpdateVelocity();
                     _solver.UpdateDensity(_densitySlider.value, pixelHitCoordinates.x, pixelHitCoordinates.y);
                 }
-                else if(_moveToggle.isOn)
+                else if (_moveToggle.isOn)
                 {
                     (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_fluidQuad, _fluidGrid, _solver.Boundary.WallTypes);
                     UpdateToolPositions(pixelHitCoordinates);
@@ -126,11 +126,11 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
                 UpdateColors();
             }
-            catch (NotHitException) {}
+            catch (NotHitException) { }
             catch (Exception e) when (e is InValidCoordinateException || e is NotPaintableException)
             {
                 //TODO szebben
-                if(_previousMousePosition != (0,0))
+                if (_previousMousePosition != (0, 0))
                 {
                     ClearLastToolPositions();
                 }
@@ -146,7 +146,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        if(eventData.button == PointerEventData.InputButton.Left)
+        if (eventData.button == PointerEventData.InputButton.Left)
         {
             _leftDown = true;
         }
@@ -154,7 +154,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
     public void OnPointerUp(PointerEventData eventData)
     {
-        if(eventData.button == PointerEventData.InputButton.Left)
+        if (eventData.button == PointerEventData.InputButton.Left)
         {
             _leftDown = false;
         }
@@ -268,7 +268,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         {
             for (int y = 1; y < _gridSize + 1; ++y)
             {
-                if(_solver.Boundary.WallTypes[x, y] == WallType.NONE && _fluidGrid.GetPixel(x,y) != Color.red)
+                if (_solver.Boundary.WallTypes[x, y] == WallType.NONE && _fluidGrid.GetPixel(x, y) != Color.red)
                 {
                     Color pixelColor = CalculatePixelColor(x, y);
                     _fluidGrid.SetPixel(x, y, pixelColor);
@@ -281,26 +281,6 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
     //TODO think through thresholding and gradient
     private Color CalculatePixelColor(int x_, int y_)
     {
-        Color fillColor = Color.black;
-
-        switch (_persistence.MatterType)
-        {
-            case MatterType.CUSTOM:
-                fillColor = _fluidColor;
-                break;
-            case MatterType.WATER:
-                fillColor = Color.blue;
-                break;
-            case MatterType.HONEY:
-                fillColor = Color.yellow;
-                break;
-            case MatterType.HIDROGEN:
-                fillColor = Color.green;
-                break;
-            default:
-                break;
-        }
-
         //TODO
         /*if (_persistence.MatterState == MatterState.FLUID)
         {
@@ -319,7 +299,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
         GradientColorKey[] colorKeys = new GradientColorKey[2];
 
-        colorKeys[0] = new GradientColorKey(fillColor, 1.0F);
+        colorKeys[0] = new GradientColorKey(_fluidColor, 1.0F);
         colorKeys[1] = new GradientColorKey(Color.white, 0.0F);
 
         GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];
@@ -337,7 +317,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
     #region Private movement/drawing methods
 
     //TODO scale vectors
-    private (int,int) CalculateDirection(float horizontal_, float vertical_)
+    private (int, int) CalculateDirection(float horizontal_, float vertical_)
     {
         int outX = horizontal_ < 0 ? -1 : horizontal_ > 0 ? 1 : 0;
         int outY = vertical_ < 0 ? -1 : vertical_ > 0 ? 1 : 0;
@@ -345,7 +325,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         return (outX, outY);
     }
 
-    private void PaintToolPositions((int x,int y) pixelCoordinate_)
+    private void PaintToolPositions((int x, int y) pixelCoordinate_)
     {
         try
         {
@@ -382,7 +362,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
 
     private void DrawSquare((int x, int y) pixelCoordinate_)
     {
-        if(pixelCoordinate_.x == _gridSize || pixelCoordinate_.y == 1)
+        if (pixelCoordinate_.x == _gridSize || pixelCoordinate_.y == 1)
         {
             throw new NotPaintableException();
         }
@@ -391,7 +371,7 @@ public class SimulationScript : MonoBehaviour,IPointerDownHandler,IPointerUpHand
         {
             for (int y = 0; y > -2; --y)
             {
-                if(_previousMousePosition != (0,0))
+                if (_previousMousePosition != (0, 0))
                 {
                     Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
                     _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);

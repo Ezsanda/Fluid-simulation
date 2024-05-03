@@ -5,7 +5,7 @@ using System;
 
 public class NotHitException : Exception
 {
-    public NotHitException() : base() {}
+    public NotHitException() : base() { }
 }
 
 public class InValidCoordinateException : Exception
@@ -15,5 +15,5 @@ public class InValidCoordinateException : Exception
 
 public class NotPaintableException : Exception
 {
-    public NotPaintableException() : base() {}
+    public NotPaintableException() : base() { }
 }

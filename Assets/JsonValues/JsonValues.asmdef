@@ -1,0 +1,16 @@
+{
+    "name": "JsonValues",
+    "rootNamespace": "",
+    "references": [
+        "GUID:38140ad16dbd07d43892e88a95e3fa86"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

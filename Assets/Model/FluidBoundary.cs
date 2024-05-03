@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Android;
-using static UnityEngine.Rendering.DebugUI;
 
 public class FluidBoundary
 {

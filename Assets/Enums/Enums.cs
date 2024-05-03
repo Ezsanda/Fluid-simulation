@@ -14,7 +14,8 @@ public enum MatterType
     CUSTOM,
     WATER,
     HONEY,
-    HIDROGEN
+    HIDROGEN,
+    SMOKE
 }
 
 public enum PaintHelper

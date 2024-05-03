@@ -20,7 +20,7 @@ public class RayCaster
     {
         get
         {
-            if(_instance == null)
+            if (_instance == null)
             {
                 _instance = new RayCaster();
             }
@@ -178,7 +178,7 @@ public class RayCaster
             {
                 throw new InValidCoordinateException();
             }
-            if(!Paintable((pixelHitX, pixelHitY), texture_.width, paintHelper_, leftDown_))
+            if (!Paintable((pixelHitX, pixelHitY), texture_.width, paintHelper_, leftDown_))
             {
                 throw new NotPaintableException();
             }

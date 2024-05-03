@@ -3,15 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-using UnityEngine.Rendering.UI;
-using Unity.VisualScripting;
 using TMPro;
 using System;
-using TMPro.EditorUtilities;
 using UnityEngine.EventSystems;
-using UnityEngine.Rendering;
 
-public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
+public class EditorScript : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
 
     #region Fields
@@ -119,19 +115,19 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
     {
         try
         {
-            if(!_colorPickerOpen && (_leftDown || _rightDown))
+            if (!_colorPickerOpen && (_leftDown || _rightDown))
             {
                 (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_editorQuad, _grid, _paintHelper, _leftDown);
                 PaintCoordinates(pixelHitCoordinates);
             }
-            else if(_colorPickerOpen && _leftDown)
+            else if (_colorPickerOpen && _leftDown)
             {
                 (int x, int y) pixelHitCoordinates = _rayCaster.CalculatePixelCoordinates(_colorPickerQuad, _colorPickerTexture);
                 _colorPickerButton.image.color = _colorPickerTexture.GetPixel(pixelHitCoordinates.x, pixelHitCoordinates.y);
                 UpdateDropDown();
             }
         }
-        catch (Exception e) when (e is NotHitException || e is InValidCoordinateException || e is NotPaintableException) {}
+        catch (Exception e) when (e is NotHitException || e is InValidCoordinateException || e is NotPaintableException) { }
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -205,7 +201,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void OnMatterTypeChanged(int value)
     {
-        if((MatterType)value != MatterType.CUSTOM)
+        if ((MatterType)value != MatterType.CUSTOM)
         {
             SetParameters((MatterType)value);
         }
@@ -260,16 +256,8 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
 
     private void OnGravityChanged(float value)
     {
-        if (value != 0)
-        {
-            _gravityText.text = value.ToString();
-            _gravity = value;
-        }
-        else
-        {
-            _gravityText.text = "1";
-            _gravity = 1;
-        }
+        _gravityText.text = value.ToString();
+        _gravity = value;
 
         UpdateDropDown();
     }
@@ -307,21 +295,21 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         _matterTypeInfo = MatterTypeInfo.Instance;
         _rayCaster = RayCaster.Instance;
 
-        if(_persistence.FirstStart)
+        if (_persistence.FirstStart)
         {
             //TODO test
-            SetupSliders(40,0.2f,0.0002f,15,40);
+            SetupSliders(40, 0.2f, 0.0002f, 15, 40);
             SetupGrid();
             SetupColorPicker(Color.blue);
             SetupPainter();
-            SetupDropDowns(MatterType.WATER,MatterState.FLUID);
+            SetupDropDowns(MatterType.WATER, MatterState.FLUID);
         }
         else
         {
             SetupSliders(_persistence.GridSize, _persistence.TimeStep, _persistence.Viscosity, _persistence.Gravity, _persistence.StepCount);
             SetupGrid(_persistence.WallGrid);
             SetupColorPicker(_persistence.FluidColor);
-            SetupDropDowns(_persistence.MatterType,_persistence.MatterState);
+            SetupDropDowns(_persistence.MatterType, _persistence.MatterState);
             _interpolateToggle.isOn = _persistence.Interpolate;
             _paintHelper = _persistence.PaintHelper;
         }
@@ -386,7 +374,7 @@ public class EditorScript : MonoBehaviour,IPointerDownHandler,IPointerUpHandler
         {
             for (int y = 0; y < _gridSize + 2; ++y)
             {
-                Color pixelColor = wallGrid_.GetPixel(x,y).a == 0 ? Color.white : Color.black;
+                Color pixelColor = wallGrid_.GetPixel(x, y).a == 0 ? Color.white : Color.black;
                 _grid.SetPixel(x, y, pixelColor);
             }
         }

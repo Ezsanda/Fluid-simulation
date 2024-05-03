@@ -5,9 +5,9 @@ using UnityEngine;
 public class FluidGrid
 {
 
-	#region Fields
+    #region Fields
 
-	private float[,] _previousDensity;
+    private float[,] _previousDensity;
 
     private float[,] _density;
 

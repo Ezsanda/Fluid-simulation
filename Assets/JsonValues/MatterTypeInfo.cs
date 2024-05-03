@@ -12,7 +12,7 @@ public class MatterTypeInfo
 
     private static MatterTypeInfo _instance;
 
-    private Dictionary<string, Dictionary<string,string>> _matterTypeValues = null!;
+    private Dictionary<string, Dictionary<string, string>> _matterTypeValues = null!;
 
     #endregion
 
@@ -36,7 +36,7 @@ public class MatterTypeInfo
 
     private MatterTypeInfo()
     {
-        _matterTypeValues = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string,string>>>(File.ReadAllText(@"Assets/JsonValues/MatterTypeValues.json"));
+        _matterTypeValues = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(@"Assets/JsonValues/MatterTypeValues.json"));
     }
 
 
@@ -54,6 +54,8 @@ public class MatterTypeInfo
                 return float.Parse(_matterTypeValues["Honey"]["timestep"]);
             case MatterType.HIDROGEN:
                 return float.Parse(_matterTypeValues["Hidrogen"]["timestep"]);
+            case MatterType.SMOKE:
+                return float.Parse(_matterTypeValues["Smoke"]["timestep"]);
             default:
                 return 0;
         }
@@ -69,6 +71,8 @@ public class MatterTypeInfo
                 return float.Parse(_matterTypeValues["Honey"]["viscosity"]);
             case MatterType.HIDROGEN:
                 return float.Parse(_matterTypeValues["Hidrogen"]["viscosity"]);
+            case MatterType.SMOKE:
+                return float.Parse(_matterTypeValues["Smoke"]["viscosity"]);
             default:
                 return 0;
         }
@@ -84,6 +88,8 @@ public class MatterTypeInfo
                 return float.Parse(_matterTypeValues["Honey"]["gravity"]);
             case MatterType.HIDROGEN:
                 return float.Parse(_matterTypeValues["Hidrogen"]["gravity"]);
+            case MatterType.SMOKE:
+                return float.Parse(_matterTypeValues["Smoke"]["gravity"]);
             default:
                 return 0;
         }
@@ -99,6 +105,8 @@ public class MatterTypeInfo
                 return int.Parse(_matterTypeValues["Honey"]["stepcount"]);
             case MatterType.HIDROGEN:
                 return int.Parse(_matterTypeValues["Hidrogen"]["stepcount"]);
+            case MatterType.SMOKE:
+                return int.Parse(_matterTypeValues["Smoke"]["stepcount"]);
             default:
                 return 0;
         }
@@ -106,24 +114,29 @@ public class MatterTypeInfo
 
     public Color Color(MatterType matterType_)
     {
-        int r, g, b;
+        float r, g, b;
 
         switch (matterType_)
         {
             case MatterType.WATER:
-                r = int.Parse(_matterTypeValues["Water"]["color"].Split(',')[0]);
-                g = int.Parse(_matterTypeValues["Water"]["color"].Split(',')[1]);
-                b = int.Parse(_matterTypeValues["Water"]["color"].Split(',')[2]);
-                return new Color(r,g,b);
+                r = float.Parse(_matterTypeValues["Water"]["color"].Split(',')[0]) / 255;
+                g = float.Parse(_matterTypeValues["Water"]["color"].Split(',')[1]) / 255;
+                b = float.Parse(_matterTypeValues["Water"]["color"].Split(',')[2]) / 255;
+                return new Color(r, g, b);
             case MatterType.HONEY:
-                r = int.Parse(_matterTypeValues["Honey"]["color"].Split(',')[0]);
-                g = int.Parse(_matterTypeValues["Honey"]["color"].Split(',')[1]);
-                b = int.Parse(_matterTypeValues["Honey"]["color"].Split(',')[2]);
+                r = float.Parse(_matterTypeValues["Honey"]["color"].Split(',')[0]) / 255;
+                g = float.Parse(_matterTypeValues["Honey"]["color"].Split(',')[1]) / 255;
+                b = float.Parse(_matterTypeValues["Honey"]["color"].Split(',')[2]) / 255;
                 return new Color(r, g, b);
             case MatterType.HIDROGEN:
-                r = int.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[0]);
-                g = int.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[1]);
-                b = int.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[2]);
+                r = float.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[0]) / 255;
+                g = float.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[1]) / 255;
+                b = float.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[2]) / 255;
+                return new Color(r, g, b);
+            case MatterType.SMOKE:
+                r = float.Parse(_matterTypeValues["Smoke"]["color"].Split(',')[0]) / 255;
+                g = float.Parse(_matterTypeValues["Smoke"]["color"].Split(',')[1]) / 255;
+                b = float.Parse(_matterTypeValues["Smoke"]["color"].Split(',')[2]) / 255;
                 return new Color(r, g, b);
             default:
                 return new Color(0, 0, 0);
@@ -140,6 +153,8 @@ public class MatterTypeInfo
                 return (MatterState)int.Parse(_matterTypeValues["Honey"]["matterstate"]);
             case MatterType.HIDROGEN:
                 return (MatterState)int.Parse(_matterTypeValues["Hidrogen"]["matterstate"]);
+            case MatterType.SMOKE:
+                return (MatterState)int.Parse(_matterTypeValues["Smoke"]["matterstate"]);
             default:
                 return 0;
         }

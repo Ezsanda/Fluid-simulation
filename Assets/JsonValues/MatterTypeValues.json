@@ -12,15 +12,23 @@
     "viscosity": 0.000002,
     "gravity": 20,
     "stepcount": 40,
-    "color": "255,165,0",
+    "color": "231,154,63",
     "matterstate": 0
   },
   "Hidrogen": {
     "timestep": 0.1,
     "viscosity": 0.0002,
-    "gravity": -1,
+    "gravity": -15,
     "stepcount": 40,
     "color": "0,255,0",
+    "matterstate": 1
+  },
+  "Smoke": {
+    "timestep": 0.1,
+    "viscosity": 0.0002,
+    "gravity": -1,
+    "stepcount": 40,
+    "color": "115,130,118",
     "matterstate": 1
   }
 }
