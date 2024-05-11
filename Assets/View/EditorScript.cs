@@ -297,7 +297,6 @@ public class EditorScript : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
 
         if (_persistence.FirstStart)
         {
-            //TODO test
             SetupSliders(40, 0.2f, 0.0002f, 15, 40);
             SetupGrid();
             SetupColorPicker(Color.blue);
@@ -324,13 +323,13 @@ public class EditorScript : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
         _resolutionSlider.value = _gridSize;
 
         _timeStepSlider.minValue = 0;
-        _timeStepSlider.maxValue = 0.5f;
+        _timeStepSlider.maxValue = 0.2f;
         _timeStep = timeStep_;
         _timeStepText.text = _timeStep.ToString();
         _timeStepSlider.value = _timeStep;
 
-        _viscositySlider.minValue = 0.0001f;
-        _viscositySlider.maxValue = 0.01f;
+        _viscositySlider.minValue = 0.000002f;
+        _viscositySlider.maxValue = 0.0002f;
         _viscosity = viscosity_;
         _viscosityText.text = _viscosity.ToString();
         _viscositySlider.value = _viscosity;
@@ -341,7 +340,7 @@ public class EditorScript : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
         _gravityText.text = _gravity.ToString();
         _gravitySlider.value = _gravity;
 
-        _stepCountSlider.minValue = 10;
+        _stepCountSlider.minValue = 20;
         _stepCountSlider.maxValue = 100;
         _stepCount = stepCount_;
         _stepCountText.text = _stepCount.ToString();

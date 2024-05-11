@@ -14,6 +14,12 @@ public class RayCaster
 
     #endregion
 
+    #region Constructor
+
+    private RayCaster() { }
+
+    #endregion
+
     #region Properties
 
     public static RayCaster Instance
@@ -45,7 +51,6 @@ public class RayCaster
                wallTypes_[pixelCoordinate_.x, pixelCoordinate_.y] == WallType.NONE;
     }
 
-    //TODO szebben
     private bool Paintable((int x, int y) pixelCoordinate_, int gridSize_, PaintHelper[,] paintHelper_, bool leftDown_)
     {
         if (pixelCoordinate_.x == gridSize_ - 2 || pixelCoordinate_.y == 1)

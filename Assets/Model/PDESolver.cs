@@ -179,7 +179,7 @@ public class PDESolver
                     float yDifference = previousYIndex - previousNeighborYIndex;
                     float secondYDifference = 1 - yDifference;
 
-                    //biliear interpolation of the 4 neightbors
+                    //bilinear interpolation of the 4 neighbors
                     vectorField_[x, y] = secondXDifference *
                                          (secondYDifference * previousVectorField_[previousNeighborXIndex, previousNeighborYIndex] +
                                          yDifference * previousVectorField_[previousNeighborXIndex, nextNeighborYIndex]) +

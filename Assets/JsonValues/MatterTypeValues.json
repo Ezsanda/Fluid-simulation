@@ -15,17 +15,17 @@
     "color": "231,154,63",
     "matterstate": 0
   },
-  "Hidrogen": {
+  "Neon": {
     "timestep": 0.1,
     "viscosity": 0.0002,
     "gravity": -15,
     "stepcount": 40,
-    "color": "0,255,0",
+    "color": "255,49,49",
     "matterstate": 1
   },
   "Smoke": {
     "timestep": 0.1,
-    "viscosity": 0.0002,
+    "viscosity": 0.00002,
     "gravity": -1,
     "stepcount": 40,
     "color": "115,130,118",

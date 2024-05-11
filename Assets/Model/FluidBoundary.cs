@@ -65,7 +65,6 @@ public class FluidBoundary
         vectorField_[_gridSize + 1, _gridSize + 1] = (vectorField_[_gridSize, _gridSize + 1] + vectorField_[_gridSize + 1, _gridSize]) / 2.0F;
     }
 
-    //TODO think about inner boundaries
     private void SetInnerBoundary(BoundaryCondition boundary_, float[,] vectorField_, int x_, int y_)
     {
         switch (_wallTypes[x_, y_])
@@ -77,10 +76,10 @@ public class FluidBoundary
                 switch (boundary_)
                 {
                     case BoundaryCondition.NO_SLIP_X:
-                        vectorField_[x_, y_] = 0;//vectorField_[x_, y_ + 1];
+                        vectorField_[x_, y_] = vectorField_[x_, y_ + 1];
                         break;
                     case BoundaryCondition.NO_SLIP_Y:
-                        vectorField_[x_, y_] = 0;//-vectorField_[x_, y_ + 1];
+                        vectorField_[x_, y_] = -vectorField_[x_, y_ + 1];
                         break;
                     case BoundaryCondition.NEUMANN:
                         vectorField_[x_, y_] = vectorField_[x_, y_ + 1];
@@ -96,10 +95,10 @@ public class FluidBoundary
                 switch (boundary_)
                 {
                     case BoundaryCondition.NO_SLIP_X:
-                        vectorField_[x_, y_] = 0;//-vectorField_[x_ + 1, y_];
+                        vectorField_[x_, y_] = -vectorField_[x_ + 1, y_];
                         break;
                     case BoundaryCondition.NO_SLIP_Y:
-                        vectorField_[x_, y_] = 0;//vectorField_[x_ + 1, y_];
+                        vectorField_[x_, y_] = vectorField_[x_ + 1, y_];
                         break;
                     case BoundaryCondition.NEUMANN:
                         vectorField_[x_, y_] = vectorField_[x_ + 1, y_];
@@ -115,10 +114,10 @@ public class FluidBoundary
                 switch (boundary_)
                 {
                     case BoundaryCondition.NO_SLIP_X:
-                        vectorField_[x_, y_] = 0;//vectorField_[x_, y_ - 1];
+                        vectorField_[x_, y_] = vectorField_[x_, y_ - 1];
                         break;
                     case BoundaryCondition.NO_SLIP_Y:
-                        vectorField_[x_, y_] = 0;//-vectorField_[x_, y_ - 1];
+                        vectorField_[x_, y_] = -vectorField_[x_, y_ - 1];
                         break;
                     case BoundaryCondition.NEUMANN:
                         vectorField_[x_, y_] = vectorField_[x_, y_ - 1];
@@ -134,10 +133,10 @@ public class FluidBoundary
                 switch (boundary_)
                 {
                     case BoundaryCondition.NO_SLIP_X:
-                        vectorField_[x_, y_] = 0;//-vectorField_[x_ - 1, y_];
+                        vectorField_[x_, y_] = -vectorField_[x_ - 1, y_];
                         break;
                     case BoundaryCondition.NO_SLIP_Y:
-                        vectorField_[x_, y_] = 0;//vectorField_[x_ - 1, y_];
+                        vectorField_[x_, y_] = vectorField_[x_ - 1, y_];
                         break;
                     case BoundaryCondition.NEUMANN:
                         vectorField_[x_, y_] = vectorField_[x_ - 1, y_];

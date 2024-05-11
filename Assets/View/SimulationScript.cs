@@ -72,9 +72,6 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
 
     private (int, int)[] _toolPositions;
 
-    //TODO
-    //private float _threshold = 0.00002F;
-
     private RayCaster _rayCaster;
 
     #endregion
@@ -87,7 +84,6 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
         SetupUI();
     }
 
-    //TODO szebben
     void FixedUpdate()
     {
         if (_isSimulating)
@@ -109,7 +105,7 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
 
                     if (_leftDown)
                     {
-                        (int x, int y) direction = CalculateDirection(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+                        (float x, float y) direction = CalculateDirection(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
                         _solver.UpdateVelocity(direction.x, direction.y, _toolPositions);
                     }
                     else
@@ -129,7 +125,6 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
             catch (NotHitException) { }
             catch (Exception e) when (e is InValidCoordinateException || e is NotPaintableException)
             {
-                //TODO szebben
                 if (_previousMousePosition != (0, 0))
                 {
                     ClearLastToolPositions();
@@ -278,19 +273,8 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
         _fluidGrid.Apply();
     }
 
-    //TODO think through thresholding and gradient
     private Color CalculatePixelColor(int x_, int y_)
     {
-        //TODO
-        /*if (_persistence.MatterState == MatterState.FLUID)
-        {
-            if (_solver.Grid.Density[x_, y_] < _threshold)
-            {
-                return Color.white;
-            }
-            return fillColor;
-        }*/
-
         (float minDensity, float maxDensity) = (0, 0.0001F);
 
         float pixelIntensity = (_solver.Grid.Density[x_, y_] - minDensity) / (maxDensity - minDensity);
@@ -316,13 +300,33 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
 
     #region Private movement/drawing methods
 
-    //TODO scale vectors
-    private (int, int) CalculateDirection(float horizontal_, float vertical_)
+    private (float, float) CalculateDirection(float horizontal_, float vertical_)
     {
-        int outX = horizontal_ < 0 ? -1 : horizontal_ > 0 ? 1 : 0;
-        int outY = vertical_ < 0 ? -1 : vertical_ > 0 ? 1 : 0;
+        float dirX = 0;
+        float dirY = 0;
 
-        return (outX, outY);
+        switch (_selectedTool)
+        {
+            case Tool.POINT:
+                dirX = 1.2f;
+                dirY = 1.2f;
+                break;
+            case Tool.SQUARE:
+                dirX = 0.3f;
+                dirY = 0.3f;
+                break;
+            case Tool.RECTANGLE:
+                dirX = 0.2f;
+                dirY = 0.2f;
+                break;
+            default:
+                break;
+        }
+
+        dirX = horizontal_ < 0 ? -dirX : dirX;
+        dirY = vertical_ < 0 ? -dirY : dirY;
+
+        return (dirX, dirY);
     }
 
     private void PaintToolPositions((int x, int y) pixelCoordinate_)

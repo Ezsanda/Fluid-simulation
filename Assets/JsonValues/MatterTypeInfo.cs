@@ -52,8 +52,8 @@ public class MatterTypeInfo
                 return float.Parse(_matterTypeValues["Water"]["timestep"]);
             case MatterType.HONEY:
                 return float.Parse(_matterTypeValues["Honey"]["timestep"]);
-            case MatterType.HIDROGEN:
-                return float.Parse(_matterTypeValues["Hidrogen"]["timestep"]);
+            case MatterType.NEON:
+                return float.Parse(_matterTypeValues["Neon"]["timestep"]);
             case MatterType.SMOKE:
                 return float.Parse(_matterTypeValues["Smoke"]["timestep"]);
             default:
@@ -69,8 +69,8 @@ public class MatterTypeInfo
                 return float.Parse(_matterTypeValues["Water"]["viscosity"]);
             case MatterType.HONEY:
                 return float.Parse(_matterTypeValues["Honey"]["viscosity"]);
-            case MatterType.HIDROGEN:
-                return float.Parse(_matterTypeValues["Hidrogen"]["viscosity"]);
+            case MatterType.NEON:
+                return float.Parse(_matterTypeValues["Neon"]["viscosity"]);
             case MatterType.SMOKE:
                 return float.Parse(_matterTypeValues["Smoke"]["viscosity"]);
             default:
@@ -86,8 +86,8 @@ public class MatterTypeInfo
                 return float.Parse(_matterTypeValues["Water"]["gravity"]);
             case MatterType.HONEY:
                 return float.Parse(_matterTypeValues["Honey"]["gravity"]);
-            case MatterType.HIDROGEN:
-                return float.Parse(_matterTypeValues["Hidrogen"]["gravity"]);
+            case MatterType.NEON:
+                return float.Parse(_matterTypeValues["Neon"]["gravity"]);
             case MatterType.SMOKE:
                 return float.Parse(_matterTypeValues["Smoke"]["gravity"]);
             default:
@@ -103,8 +103,8 @@ public class MatterTypeInfo
                 return int.Parse(_matterTypeValues["Water"]["stepcount"]);
             case MatterType.HONEY:
                 return int.Parse(_matterTypeValues["Honey"]["stepcount"]);
-            case MatterType.HIDROGEN:
-                return int.Parse(_matterTypeValues["Hidrogen"]["stepcount"]);
+            case MatterType.NEON:
+                return int.Parse(_matterTypeValues["Neon"]["stepcount"]);
             case MatterType.SMOKE:
                 return int.Parse(_matterTypeValues["Smoke"]["stepcount"]);
             default:
@@ -128,10 +128,10 @@ public class MatterTypeInfo
                 g = float.Parse(_matterTypeValues["Honey"]["color"].Split(',')[1]) / 255;
                 b = float.Parse(_matterTypeValues["Honey"]["color"].Split(',')[2]) / 255;
                 return new Color(r, g, b);
-            case MatterType.HIDROGEN:
-                r = float.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[0]) / 255;
-                g = float.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[1]) / 255;
-                b = float.Parse(_matterTypeValues["Hidrogen"]["color"].Split(',')[2]) / 255;
+            case MatterType.NEON:
+                r = float.Parse(_matterTypeValues["Neon"]["color"].Split(',')[0]) / 255;
+                g = float.Parse(_matterTypeValues["Neon"]["color"].Split(',')[1]) / 255;
+                b = float.Parse(_matterTypeValues["Neon"]["color"].Split(',')[2]) / 255;
                 return new Color(r, g, b);
             case MatterType.SMOKE:
                 r = float.Parse(_matterTypeValues["Smoke"]["color"].Split(',')[0]) / 255;
@@ -151,8 +151,8 @@ public class MatterTypeInfo
                 return (MatterState)int.Parse(_matterTypeValues["Water"]["matterstate"]);
             case MatterType.HONEY:
                 return (MatterState)int.Parse(_matterTypeValues["Honey"]["matterstate"]);
-            case MatterType.HIDROGEN:
-                return (MatterState)int.Parse(_matterTypeValues["Hidrogen"]["matterstate"]);
+            case MatterType.NEON:
+                return (MatterState)int.Parse(_matterTypeValues["Neon"]["matterstate"]);
             case MatterType.SMOKE:
                 return (MatterState)int.Parse(_matterTypeValues["Smoke"]["matterstate"]);
             default:

@@ -14,7 +14,7 @@ public enum MatterType
     CUSTOM,
     WATER,
     HONEY,
-    HIDROGEN,
+    NEON,
     SMOKE
 }
 
