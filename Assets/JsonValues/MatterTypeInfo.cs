@@ -36,7 +36,8 @@ public class MatterTypeInfo
 
     private MatterTypeInfo()
     {
-        _matterTypeValues = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(@"Assets/JsonValues/MatterTypeValues.json"));
+        TextAsset jsonText = Resources.Load<TextAsset>("MatterTypeValues");
+        _matterTypeValues = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(jsonText.text);
     }
 
 
