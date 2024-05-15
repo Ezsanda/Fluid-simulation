@@ -124,7 +124,7 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
             catch (NotHitException) { }
             catch (Exception e) when (e is InValidCoordinateException || e is NotPaintableException)
             {
-                if (_previousMousePosition != (0, 0))
+                if(_previousMousePosition != (0,0))
                 {
                     ClearLastToolPositions();
                 }
@@ -396,7 +396,7 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
         {
             for (int y = 0; y > -2; --y)
             {
-                if (_previousMousePosition != (0, 0))
+                if (_previousMousePosition != (0, 0) && _previousMousePosition.x < _gridSize)
                 {
                     Color pixelColor = CalculatePixelColor(_previousMousePosition.x + x, _previousMousePosition.y + y);
                     _fluidGrid.SetPixel(_previousMousePosition.x + x, _previousMousePosition.y + y, pixelColor);
@@ -418,7 +418,10 @@ public class SimulationScript : MonoBehaviour, IPointerDownHandler, IPointerUpHa
                 ClearSquare();
                 break;
             case Tool.RECTANGLE:
-                ClearRectangle();
+                if(_previousMousePosition.x < _gridSize)
+                {
+                    ClearRectangle();
+                }
                 break;
             default:
                 break;
